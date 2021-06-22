@@ -7,7 +7,7 @@ Source code for the Findings of ACL 2021 paper entitled  `TILGAN: Transformer-ba
   - [Quick Links](#quick-links)
   - [Overview](#overview)
   - [Organization](#organization)
-  - [Bugs or questions?](#bugs-or-questions)
+  - [Bugs or Questions?](#bugs-or-questions)
   - [Citation](#citation)
   - [Quick Tour](#quick-tour)
 ## Overview
@@ -61,9 +61,9 @@ This is the file organization of TILGAN, `...` means omitting the subfolder.
    `-- README.md
    
    ```
-## Bugs or questions?
+## Bugs or Questions?
 
-If you have any questions related to the code or the paper, feel free to email Shizhe Diao (`sdiaoaa@connect.ust.hk`) or Kashun Shum (`ksshumab@connect.ust.hk`). 
+If you have any questions related to the code, feel free to email Shizhe Diao (`sdiaoaa@connect.ust.hk`) or Kashun Shum (`ksshumab@connect.ust.hk`). 
 If you encounter any problems when using the code, or want to report a bug, you can open an issue. 
 Please try to specify the problem with details so we can help you better and quicker!
 

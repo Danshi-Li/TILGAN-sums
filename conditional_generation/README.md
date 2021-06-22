@@ -21,7 +21,7 @@ pip install -r requirements.txt
 After the environment setup, you can simply type the following command:
 
 ```shell
-# create output folder
+# Create output folder
 mkdir output    
 # Run train.py
 python train.py
