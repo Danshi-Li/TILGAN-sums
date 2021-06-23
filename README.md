@@ -68,6 +68,16 @@ If you encounter any problems when using the code, or want to report a bug, you 
 Please try to specify the problem with details so we can help you better and quicker!
 
 ## Citation
+If you use or extend our work, please cite the following paper:
+```
+@article{DSSSZ2021,
+  title="{TILGAN: Transformer-based Implicit Latent GAN for Diverse and Coherent Text Generation}",
+  author={Shizhe Diao, Xinwei Shen, Kashun Shum, Yan Song, Tong Zhang},
+  journal={ArXiv},
+  year={2021},
+  volume={}
+}
+```
 
 ## Quick Tour
 We perform experiments on both conditional task and unconditional task, and seperate them into two folders.
