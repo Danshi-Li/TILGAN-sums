@@ -821,6 +821,8 @@ for experiment in comet_opt.get_experiments():
                     if args.enhance_dec:
                         for i in range(args.niters_gan_dec):
                             errG_enh_dec = train_gan_dec()
+                    else:
+                        errG_enh_dec = torch.Tensor([0])
 
                 niter_g += 1
                 if niter_g % 200 == 0:
