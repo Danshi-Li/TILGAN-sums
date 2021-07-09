@@ -19,6 +19,11 @@ pip install -r requirements.txt
 
 ## Quick Start
 After the environment setup, you can simply type the following command:
+  ```shell
+  bash train.sh
+  ```
+
+Or you can type the commends as following:
 
    ```shell
    mkdir results
@@ -27,11 +32,6 @@ After the environment setup, you can simply type the following command:
    ```
 
 You can simply add arguments `--add_noise` , `--gan_d_local` and `--enhance_dec` to test the variants of our model.
-
-
-## Hyper-parameter Setting
-The detailed hyper-parameter setting is reported in our paper. Please check at Appendix. 
-
 
 
 ## Acknowledgement
