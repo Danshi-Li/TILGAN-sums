@@ -627,4 +627,4 @@ def train():
             logging("New saving model: epoch {:03d}.".format(epoch))
             save_model()
 
-    train()
+train()
