@@ -1,6 +1,3 @@
-# Import comet_ml in the top of your file
-from comet_ml import Experiment
-from comet_ml import Optimizer
 import argparse
 import os
 import time
@@ -22,8 +19,6 @@ from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, create_exp_
 from models import Seq2Seq, MLP_D, MLP_D_local, MLP_G
 from bleu_self import *
 from bleu_test import *
-#import wandb
-#wandb.init(project="t-arae-lang_cal_param")
 import datetime
 now_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
@@ -57,8 +52,6 @@ parser.add_argument('--emsize', type=int, default=512,
                     help='size of word embeddings')
 parser.add_argument('--nhidden', type=int, default=512,
                     help='number of hidden units per layer')
-# parser.add_argument('--nlatent', type=int, default=8192,
-#                     help='number of hidden units per layer for discriminator and decoder (because we use concatenation, so it is len*nhidden)')
 parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
 parser.add_argument('--noise_r', type=float, default=0.05,
@@ -162,7 +155,6 @@ print(vars(args))
 args.save = args.save+now_time
 # Report any information you need by:
 hyper_params = vars(args)
-#wandb.config.update(args)  # adds all of the arguments as config variables
 experiment.log_parameters(hyper_params)
 
 
@@ -197,7 +189,7 @@ def logging(str, to_stdout=True):
         print(str)
 logging(str(vars(args)))
 
-# eval_batch_size = 10
+
 eval_batch_size = args.eval_batch_size
 noise_seq_length = args.noise_seq_length
 test_data = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)

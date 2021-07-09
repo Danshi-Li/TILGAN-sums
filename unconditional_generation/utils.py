@@ -24,8 +24,6 @@ class Dictionary(object):
         self.idx2word = {}
         self.word2idx['<pad>'] = 0
         self.word2idx['<sos>'] = 1
-        # self.word2idx['<sos>'] = 0
-        # self.word2idx['<pad>'] = 1
         self.word2idx['<eos>'] = 2
         self.word2idx['<oov>'] = 3
         self.wordcounts = {}
@@ -133,12 +131,12 @@ def batchify(data, bsz, max_len, shuffle=False, gpu=False):
     batches = []
 
     for i in range(nbatch):
-        maxlen = max_len+1 #change by @shizhe  because max_len=15, add starts & end symbols then is 17, subtract 1 = 16.
+        maxlen = max_len+1
         # Pad batches to maximum sequence length in batch
         batch = data[i*bsz:(i+1)*bsz]
         # subtract 1 from lengths b/c includes BOTH starts & end symbols
         lengths = [len(x)-1 for x in batch]
-        # lengths = [maxlen for x in batch] #changed by @shizhe to modify the length to 16
+
         # sort items by length (decreasing)
         batch, lengths = length_sort(batch, lengths)
 
@@ -147,14 +145,11 @@ def batchify(data, bsz, max_len, shuffle=False, gpu=False):
         # target has no start symbol
         target = [x[1:] for x in batch]
 
-        # find length to pad to
-        # maxlen = max(lengths)
 
         for x, y in zip(source, target):
             zeros = (maxlen-len(x))*[0]
             x += zeros
             y += zeros
-        # print(source)
         source = torch.LongTensor(np.array(source))
         target = torch.LongTensor(np.array(target)).view(-1)
 
