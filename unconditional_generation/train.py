@@ -153,9 +153,6 @@ parser.add_argument('--seed', type=int, default=1111,
 args = parser.parse_args()
 print(vars(args))
 args.save = args.save+now_time
-# Report any information you need by:
-hyper_params = vars(args)
-experiment.log_parameters(hyper_params)
 
 
 # Set the random seed manually for reproducibility.
@@ -216,16 +213,10 @@ nlatent = args.aehidden * (args.maxlen+1)
 gan_gen = MLP_G(ninput=args.z_size, noutput=nlatent, layers=args.arch_g, gan_g_activation=args.gan_g_activation)
 gan_disc = MLP_D(ninput=nlatent, noutput=1, layers=args.arch_d)
 gan_disc_local = MLP_D_local(ninput=args.gan_d_local_windowsize * args.aehidden, noutput=1, layers=args.arch_d_local)
-#wandb.watch(autoencoder)
-#wandb.watch(gan_gen)
-#wandb.watch(gan_disc)
-#wandb.watch(gan_disc_local)
 
 optimizer_ae = optim.SGD(autoencoder.parameters(), lr=args.lr_ae)
-# scheduler_ae = torch.optim.lr_scheduler.StepLR(optimizer_ae, 4, gamma=0.95)
-# optimizer_gan_e = optim.SGD(autoencoder.encoder.parameters(), lr=args.lr_ae)
 
-# not sure whether just ".encoder"
+
 optimizer_gan_e = optim.Adam(autoencoder.encoder.parameters(),
                              lr=args.lr_gan_e,
                              betas=(args.beta1, 0.999))
@@ -269,10 +260,6 @@ def cal_norm(model):
     total_norm = total_norm ** (1. / 2)
     return total_norm
 
-
-    # for p in list(filter(lambda p: p.grad is not None, net.parameters())):
-    #     print(p.grad.data.norm(2).item())
-
 def load_models():
     model_args = json.load(open(os.path.join(args.save, 'options.json'), 'r'))
     word2idx = json.load(open(os.path.join(args.save, 'vocab.json'), 'r'))
@@ -289,15 +276,12 @@ def load_models():
 def evaluate_autoencoder(data_source, epoch):
     # Turn on evaluation mode which disables dropout.
     autoencoder.eval()
-    # autoencoder.train()
     total_loss = 0
     ntokens = len(corpus.dictionary.word2idx)
     all_accuracies = 0
     bcnt = 0
     for i, batch in enumerate(data_source):
         source, target, lengths = batch
-        # source = Variable(source.cuda(), volatile=True)
-        # target = Variable(target.cuda(), volatile=True)
         with torch.no_grad():
             source = Variable(source.to(device))
             target = Variable(target.to(device))
@@ -312,21 +296,12 @@ def evaluate_autoencoder(data_source, epoch):
 
             masked_output = \
                 flattened_output.masked_select(output_mask).view(-1, ntokens)
-            # total_loss += F.cross_entropy(masked_output, masked_target).data
             total_loss += F.cross_entropy(masked_output, masked_target)
 
             # accuracy
-            # probs = F.softmax(masked_output, dim=-1) # added by diao
             max_vals, max_indices = torch.max(masked_output, 1)
-            # print("----evaluate_AE----")
-            # print("max_indices: ", max_indices)
-            # print("masked_target: ", masked_target)
-            # print("----evaluate_AE----")
             accuracy = torch.mean(max_indices.eq(masked_target).float()).data.item()
-            # print("flag: accu = ", accuracy)
             all_accuracies += accuracy
-            # all_accuracies += \
-            #     torch.mean(max_indices.eq(masked_target).float()).data.item()
             bcnt += 1
 
         aeoutf = os.path.join(args.save, "autoencoder.txt")
@@ -347,7 +322,6 @@ def evaluate_autoencoder(data_source, epoch):
 
 
 def gen_fixed_noise(noise, to_save):
-    #noise [64,100] fake_hidden [64,100*max_len]
     gan_gen.eval()
     autoencoder.eval()
 
@@ -375,75 +349,15 @@ def eval_bleu(gen_text_savepath):
     testbleu = bleu_test(real_text, gen_text_savepath)
     return selfbleu, testbleu
 
-def train_lm(data_path):
-    save_path = os.path.join("/tmp", ''.join(random.choice(
-            string.ascii_uppercase + string.digits) for _ in range(6)))
-
-    indices = []
-    noise = Variable(torch.ones(100, args.z_size).to(device))
-    for i in range(1000):
-        # print("i:", i)
-        noise.data.normal_(0, 1)
-        fake_hidden = gan_gen(noise)
-        max_indices = autoencoder.generate(fake_hidden, args.maxlen, sample=args.sample)
-        indices.append(max_indices.data.cpu().numpy())
-    indices = np.concatenate(indices, axis=0)
-
-    with open(save_path, "w") as f:
-        # laplacian smoothing
-        for word in corpus.dictionary.word2idx.keys():
-            f.write(word+'\n')
-        for idx in indices:
-            words = [corpus.dictionary.idx2word[x] for x in idx]
-            # truncate sentences to first occurrence of <eos>
-            truncated_sent = []
-            for w in words:
-                if w != '<eos>':
-                    truncated_sent.append(w)
-                else:
-                    break
-            chars = " ".join(truncated_sent)
-            f.write(chars+'\n')
-    # reverse ppl
-    try:
-        rev_lm = train_ngram_lm(kenlm_path=args.kenlm_path,
-                            data_path=save_path,
-                            output_path=save_path+".arpa",
-                            N=args.N)
-        with open(os.path.join(args.data_path, 'test.txt'), 'r') as f:
-            lines = f.readlines()
-        if args.lowercase:
-            lines = list(map(lambda x: x.lower(), lines))
-        sentences = [l.replace('\n', '') for l in lines]
-        rev_ppl = get_ppl(rev_lm, sentences)
-    except:
-        print("reverse ppl error: it maybe the generated files aren't valid to obtain an LM")
-        rev_ppl = 1e15
-    # forward ppl
-    for_lm = train_ngram_lm(kenlm_path=args.kenlm_path,
-                        data_path=os.path.join(args.data_path, 'train.txt'),
-                        output_path=save_path+".arpa",
-                        N=args.N)
-    with open(save_path, 'r') as f:
-        lines = f.readlines()
-    sentences = [l.replace('\n', '') for l in lines]
-    for_ppl = get_ppl(for_lm, sentences)
-    return rev_ppl, for_ppl
-
-
 def train_ae(epoch, batch, total_loss_ae, start_time, i):
     '''Train AE with the negative log-likelihood loss'''
     autoencoder.train()
     optimizer_ae.zero_grad()
 
-    '''
-    source:  [64,15] = [batchsize, max_len] 全是idx，不是embedding
-    target: [960] = [batchsize*max_len]
-    '''
     source, target, lengths = batch
-    source = Variable(source.to(device))  #cuda:0 torch.int64
-    target = Variable(target.to(device))  #cuda:0 torch.int64
-    output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False)  #output [15,64,512] [max_len, batchsize, n_hidden]
+    source = Variable(source.to(device))
+    target = Variable(target.to(device))
+    output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False)
 
     mask = target.gt(0)
     masked_target = target.masked_select(mask)
@@ -453,34 +367,21 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     loss = F.cross_entropy(masked_output, masked_target)
     loss.backward()
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
-    # total_norm = torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
     train_ae_norm = cal_norm(autoencoder)
-    # logging("train_ae_norm = " + str(train_ae_norm), to_stdout=False)
     optimizer_ae.step()
 
-    # total_loss_ae += loss.data[0]
     total_loss_ae += loss.data.item()
     if i % args.log_interval == 0:
         probs = F.softmax(masked_output, dim=-1)
         max_vals, max_indices = torch.max(probs, 1)
-        # print("----train_AE----")
-        # print("max_indices: ", max_indices)
-        # print("masked_target: ", masked_target)
-        # print("----train_AE----")
         accuracy = torch.mean(max_indices.eq(masked_target).float()).data.item()
         cur_loss = total_loss_ae / args.log_interval
         elapsed = time.time() - start_time
-        # logging('| epoch {:3d} | {:5d}/{:5d} batches | lr {:08.6f} | ms/batch {:5.2f} | '
-        #         'loss {:5.2f} | ppl {:8.2f} | acc {:8.2f} | train_ae_norm {:8.2f}'.format(
-        #         epoch, i, len(train_data), scheduler_ae.get_lr()[0],
-        #         elapsed * 1000 / args.log_interval,
-        #         cur_loss, math.exp(cur_loss), accuracy, train_ae_norm))
         logging('| epoch {:3d} | {:5d}/{:5d} batches | lr {:08.6f} | ms/batch {:5.2f} | '
                 'loss {:5.2f} | ppl {:8.2f} | acc {:8.2f} | train_ae_norm {:8.2f}'.format(
                 epoch, i, len(train_data), 0,
                 elapsed * 1000 / args.log_interval,
                 cur_loss, math.exp(cur_loss), accuracy, train_ae_norm))
-        #wandb.log({"loss": cur_loss, "ppl": math.exp(cur_loss), "acc": accuracy, "train_ae_total_norm": train_ae_norm})
 
         total_loss_ae = 0
         start_time = time.time()
@@ -491,9 +392,8 @@ def train_gan_g(gan_type='kl'):
     gan_gen.train()
     optimizer_gan_g.zero_grad()
 
-    z = Variable(torch.Tensor(args.batch_size, args.z_size).normal_(0, 1).to(device))  #[64,100]
-    fake_hidden = gan_gen(z)  #[64,3300]
-    # fake_hidden.register_hook(grad_hook)
+    z = Variable(torch.Tensor(args.batch_size, args.z_size).normal_(0, 1).to(device))
+    fake_hidden = gan_gen(z)
     fake_score = gan_disc(fake_hidden)
 
     if args.gan_d_local:
@@ -514,10 +414,6 @@ def train_gan_g(gan_type='kl'):
 
     errG *= args.gan_lambda
     errG.backward()
-
-    train_gan_g_norm = cal_norm(gan_gen)
-    # logging("train_gan_g_norm = " + str(train_gan_g_norm), to_stdout=False)
-
     optimizer_gan_g.step()
 
     return errG
@@ -527,15 +423,13 @@ def train_gan_dec(gan_type='kl'):
     autoencoder.decoder.train()
     optimizer_gan_dec.zero_grad()
 
-    z = Variable(torch.Tensor(args.batch_size, args.z_size).normal_(0, 1).to(device))  #[64,100]
-    fake_hidden = gan_gen(z)  #[64,1848]    1848 = 56*33  aehidden*(maxlen+1)
-    # fake_hidden.register_hook(grad_hook)
+    z = Variable(torch.Tensor(args.batch_size, args.z_size).normal_(0, 1).to(device))
+    fake_hidden = gan_gen(z)
 
     # 1. decoder  - soft distribution
-    enhance_source, max_indices= autoencoder.generate_enh_dec(fake_hidden, args.maxlen, sample=args.sample)   #enhance_source: [64, 32, 3455]torch.float32   max_indices: [64, 32] torch.int64
+    enhance_source, max_indices= autoencoder.generate_enh_dec(fake_hidden, args.maxlen, sample=args.sample)
     # 2. soft distribution - > encoder  -> fake_hidden
     enhance_hidden = autoencoder(enhance_source, None, max_indices, add_noise=args.add_noise, soft=True, encode_only=True)
-    #enhance_hidden: [64, 1792]    1792 = 56*32 aehidden * maxlen
     fake_score = gan_disc(enhance_hidden)
 
     if args.gan_d_local:
@@ -556,18 +450,11 @@ def train_gan_dec(gan_type='kl'):
 
     errG *= args.gan_lambda
     errG.backward()
-
-    train_gan_g_norm = cal_norm(gan_gen)
-    # logging("train_gan_g_norm = " + str(train_gan_g_norm), to_stdout=False)
-
-    # optimizer_gan_g.step()
     optimizer_gan_dec.step()
 
     return errG
 
 def grad_hook(grad):
-    #gan_norm = torch.norm(grad, p=2, dim=1).detach().data.mean()
-    #print(gan_norm, autoencoder.grad_norm)
     return grad * args.gan_lambda
 
 
@@ -598,8 +485,8 @@ def train_gan_d(batch, gan_type='kl'):
 
     # + samples
     source, target, lengths = batch
-    source = Variable(source.to(device))  #[64, 33]
-    target = Variable(target.to(device))  #[2112] 2112 = 64*33
+    source = Variable(source.to(device))
+    target = Variable(target.to(device))
     real_hidden = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False, encode_only=True)
     real_score = gan_disc(real_hidden.detach())
 
@@ -622,7 +509,6 @@ def train_gan_d(batch, gan_type='kl'):
     fake_score = gan_disc(fake_hidden.detach())
 
     if args.gan_d_local:
-        # idx = random.randint(0, args.maxlen)
         fake_hidden_local = fake_hidden[:, idx * args.aehidden : (idx + args.gan_d_local_windowsize) * args.aehidden]
         fake_score_local = gan_disc_local(fake_hidden_local)
         fake_score += fake_score_local
@@ -638,9 +524,6 @@ def train_gan_d(batch, gan_type='kl'):
         gradient_penalty = calc_gradient_penalty(gan_disc, real_hidden.data, fake_hidden.data)
         gradient_penalty.backward()
 
-    train_gan_d_norm = cal_norm(gan_disc)
-    # logging("train_gan_d_norm = " + str(train_gan_d_norm), to_stdout=False)
-
     optimizer_gan_d.step()
     optimizer_gan_d_local.step()
     return errD_real + errD_fake, errD_real, errD_fake
@@ -654,7 +537,6 @@ def train_gan_d_into_ae(batch):
     source = Variable(source.to(device))
     target = Variable(target.to(device))
     real_hidden = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False, encode_only=True)
-    # real_hidden.register_hook(grad_hook)
 
     if args.gan_d_local:
         idx = random.randint(0, args.maxlen - args.gan_d_local_windowsize)
@@ -667,9 +549,6 @@ def train_gan_d_into_ae(batch):
     errD_real *= args.gan_lambda
     errD_real.backward()
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
-
-    gan_d_into_ae_norm = cal_norm(autoencoder)
-    # logging("gan_d_into_ae_norm = " + str(gan_d_into_ae_norm), to_stdout=False)
 
     optimizer_gan_e.step()
     return errD_real
@@ -685,12 +564,8 @@ def train():
     else:
         gan_schedule = []
     niter_gan = 1
-    # fixed_noise = Variable(torch.ones(args.batch_size, args.z_size).normal_(0, 1).cuda())
-    # fixed_noise = Variable(torch.ones(args.batch_size, args.z_size).normal_(0, 1).cuda())
     fixed_noise = Variable(torch.ones(args.eval_batch_size, args.z_size).normal_(0, 1).to(device))
 
-    best_rev_ppl = None
-    impatience = 0
     for epoch in range(1, args.epochs+1):
         # update gan training schedule
         if epoch in gan_schedule:
@@ -728,21 +603,17 @@ def train():
 
             niter_g += 1
             if niter_g % 200 == 0:
-                # autoencoder.noise_anneal(args.noise_anneal)
                 logging('[{}/{}][{}/{}] Loss_D: {:.8f} (Loss_D_real: {:.8f} '
                         'Loss_D_fake: {:.8f}) Loss_G: {:.8f} Loss_Enh_Dec: {:.8f}'.format(
                          epoch, args.epochs, niter, len(train_data),
                          errD.data.item(), errD_real.data.item(),
                          errD_fake.data.item(), errG.data.item(), errG_enh_dec.data.item()))
-                #wandb.log({"Loss_D": errD.data.item(), "Loss_D_real": errD_real.data.item(), "Loss_D_fake": errD_fake.data.item(), "Loss_G": errG.data.item(), "Loss_enh_dec":errG_enh_dec.data.item()})
-        # scheduler_ae.step()
         # eval
         test_loss, accuracy = evaluate_autoencoder(test_data, epoch)
         logging('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
                 'test ppl {:5.2f} | acc {:3.3f}'.format(epoch,
                 (time.time() - epoch_start_time), test_loss,
                 math.exp(test_loss), accuracy))
-        #wandb.log({"test loss": test_loss, "test ppl": math.exp(test_loss), "test acc": accuracy})
 
         gen_text_savepath = os.path.join(args.save, "{:03d}_examplar_gen".format(epoch))
         gen_fixed_noise(fixed_noise, gen_text_savepath)
@@ -752,22 +623,6 @@ def train():
             logging('bleu_self: [{:.8f},{:.8f},{:.8f},{:.8f},{:.8f}]'.format(selfbleu[0], selfbleu[1], selfbleu[2], selfbleu[3], selfbleu[4]))
             logging('bleu_test: [{:.8f},{:.8f},{:.8f},{:.8f},{:.8f}]'.format(testbleu[0], testbleu[1], testbleu[2], testbleu[3], testbleu[4]))
 
-        # eval with rev_ppl and for_ppl
-        # rev_ppl, for_ppl = train_lm(args.data_path)
-        # rev_ppl, for_ppl = 0, 0
-        # logging("Epoch {:03d}, Reverse perplexity {}".format(epoch, rev_ppl))
-        # logging("Epoch {:03d}, Forward perplexity {}".format(epoch, for_ppl))
-        # if best_rev_ppl is None or rev_ppl < best_rev_ppl:
-        #     impatience = 0
-        #     best_rev_ppl = rev_ppl
-        #     logging("New saving model: epoch {:03d}.".format(epoch))
-        #     save_model()
-        # else:
-        #     if not args.no_earlystopping and epoch >= args.min_epochs:
-        #         impatience += 1
-        #         if impatience > args.patience:
-        #             logging("Ending training")
-        #             sys.exit()
         if epoch % 15 == 0 or epoch == args.epochs-1:  #This is the last epoch
             logging("New saving model: epoch {:03d}.".format(epoch))
             save_model()
