@@ -618,7 +618,6 @@ def train():
         gen_text_savepath = os.path.join(args.save, "{:03d}_examplar_gen".format(epoch))
         gen_fixed_noise(fixed_noise, gen_text_savepath)
         if epoch % 5 == 0 or epoch % 4 == 0 or (args.epochs - epoch) <=2:
-            #Due to the huge time cost, we only evaluate the bleu for last 3 epochs
             selfbleu, testbleu = eval_bleu(gen_text_savepath)
             logging('bleu_self: [{:.8f},{:.8f},{:.8f},{:.8f},{:.8f}]'.format(selfbleu[0], selfbleu[1], selfbleu[2], selfbleu[3], selfbleu[4]))
             logging('bleu_test: [{:.8f},{:.8f},{:.8f},{:.8f},{:.8f}]'.format(testbleu[0], testbleu[1], testbleu[2], testbleu[3], testbleu[4]))

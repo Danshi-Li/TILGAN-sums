@@ -16,7 +16,6 @@ To run our code, please install all the dependency packages by using the followi
 ```
 pip install -r requirements.txt
 ```
-Then input the comet-ml API key and project name to complete the environment setup.
 
 ## Quick Start
 After the environment setup, you can simply type the following command:

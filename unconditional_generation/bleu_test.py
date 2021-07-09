@@ -50,19 +50,6 @@ def score(ref, hypo):
     return final_scores
 
 def bleu_test(real_text, test_text):
-    # for i in range(2, 6):
-    #     get_Bleu = Bleu(test_text=test_text, real_text=real_text, gram=i)
-    #     score = get_Bleu.get_bleu_parallel()
-    #     print(score)
-    #
-    # test_text = './arxiv_result/vae.txt'  # syn_val_words.txt
-    #
-    # for i in range(2, 6):
-    #     get_Bleu = Bleu(test_text=test_text, real_text=real_text, gram=i)
-    #     score = get_Bleu.get_bleu_parallel()
-    #     print(score)
-
-    # input_file = './results/klgan_examples_bsz64_epoch15_v2/013_examplar_gen' #syn_val_words
     real_text_sents = []
     test_text_sents = []
     with open(real_text, 'r')as fin:
@@ -74,10 +61,6 @@ def bleu_test(real_text, test_text):
 
     ans = np.zeros(5)
     for i in range(len(test_text_sents)):
-        # tmp = all_sents[:]
-        # pop = tmp.pop(i)
-        # ref = {0: tmp}
-        # hop = {0: [pop]}
         hop = {0: [test_text_sents[i]]}
         ref = {0: real_text_sents}
 
@@ -87,15 +70,7 @@ def bleu_test(real_text, test_text):
         ans[1] += score(ref, hop)['Bleu_2']
         ans[0] += score(ref, hop)['Bleu_1']
 
-        # bleu_score = score(ref, hop)
-        # ans[3] += bleu_score['Bleu_4']
-        # ans[2] += bleu_score['Bleu_3']
-        # ans[1] += bleu_score['Bleu_2']
-        # ans[0] += bleu_score['Bleu_1']
-
-
     ans /= len(test_text_sents)
-    # print('sink: ', ans)
     print("bleu_test: ", ans)
     return ans
 
@@ -104,7 +79,6 @@ if __name__ == "__main__":
     # test_text = './results/klgan_examples_bsz64_epoch15_v2/013_examplar_gen'  # syn_val_words.txt
     real_text = "./data/NewsData/test.txt"
     test_text = "./results/025_examplar_gen"
-    # ans = bleu_self('./results/klgan_examples_bsz64_epoch15_v2/013_examplar_gen')
     start = time.time()
     ans = bleu_test(real_text, test_text)
     print("elapsed time = ", time.time() - start)
