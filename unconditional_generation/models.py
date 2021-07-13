@@ -424,7 +424,7 @@ class Seq2Seq(nn.Module):
 class AE_BERT_enc(nn.Module):
     def __init__(self, BERTconfig, add_noise, emsize, nhidden, ntokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
                  hidden_init=False, dropout=0, gpu=True):
-        super(Seq2Seq, self).__init__()
+        super(AE_BERT_enc, self).__init__()
         self.nhidden = nhidden
         self.emsize = emsize
         self.ntokens = ntokens
