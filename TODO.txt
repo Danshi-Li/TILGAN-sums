@@ -10,3 +10,4 @@ File 1 only substitutes the encoder and File 2 only substitutes the decoder. Aft
 
 ###Debugging issue###
 1.The input indices to BERT is of wrong dimensionality. Expected dim = 2, input din = 3 with the last dim of length 1. Need to reduce the last dim.
+  to solve this problem, need to update "models.py->AE_BERT_enc->forward()"
