@@ -1,0 +1,9 @@
+###Next step to modification of TILGAN code###
+1.Change the encoder backbone to a BERT pretrained model
+2.Change the decoder backbone to a GPT pretrained model
+
+###What to do inorder to implement them###
+Revise the "Seq2Seq" class in the "models.py" file. Note that only one submodule should be modified in each progressive step, which enhances ablation analysis.
+In specific, should separately revise two new versions of file:
+File 1 only substitutes the encoder and File 2 only substitutes the decoder. After each file is tested for viability, combine their respective revisions and commit the final version.
+
