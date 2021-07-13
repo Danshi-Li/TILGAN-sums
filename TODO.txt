@@ -7,3 +7,6 @@ Revise the "Seq2Seq" class in the "models.py" file. Note that only one submodule
 In specific, should separately revise two new versions of file:
 File 1 only substitutes the encoder and File 2 only substitutes the decoder. After each file is tested for viability, combine their respective revisions and commit the final version.
 
+
+###Debugging issue###
+1.The input indices to BERT is of wrong dimensionality. Expected dim = 2, input din = 3 with the last dim of length 1. Need to reduce the last dim.
