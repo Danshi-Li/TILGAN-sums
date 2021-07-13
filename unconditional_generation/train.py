@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, create_exp_dir
-from models import Seq2Seq, MLP_D, MLP_D_local, MLP_G
+from models import Seq2Seq, MLP_D, MLP_D_local, MLP_G, AE_BERT_enc
 from bleu_self import *
 from bleu_test import *
 import datetime
@@ -25,6 +25,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 import argparse
+
+from transformers import BertConfig
 
 parser = argparse.ArgumentParser(description='ARAE for SNLI')
 # Path Arguments
@@ -197,7 +199,10 @@ print("Loaded data!")
 ###############################################################################
 # Build the models
 ###############################################################################
-autoencoder = Seq2Seq(add_noise=args.add_noise,
+bert_config = BertConfig()
+
+autoencoder = AE_BERT_enc(BERTconfig=bert_config, 
+                      add_noise=args.add_noise,
                       emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=args.ntokens,
