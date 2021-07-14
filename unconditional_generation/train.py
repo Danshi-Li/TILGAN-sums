@@ -362,7 +362,7 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     source, target, lengths = batch
     source = Variable(source.to(device))
     target = Variable(target.to(device))
-    output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False)
+    output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=True)
 
     mask = target.gt(0)
     masked_target = target.masked_select(mask)
