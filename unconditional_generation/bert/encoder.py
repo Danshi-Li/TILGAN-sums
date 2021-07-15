@@ -3,8 +3,7 @@ import torch.nn as nn
 from transformers import BertConfig, BertModel
 
 class BertEncoder(nn.module):
-	def __init__(self, add_noise, num_layers, d_model, heads, d_ff, dropout,
-                 attention_dropout, embeddings, max_relative_positions, aehidden):
+	def __init__(self, add_noise, num_layers, d_model, heads, d_ff, dropout,attention_dropout, embeddings, max_relative_positions, aehidden):
 		super(BertEncoder, self).__init__()
 		self.aehidden = aehidden
         self.embeddings = embeddings
