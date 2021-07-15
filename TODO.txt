@@ -9,6 +9,8 @@ File 1 only substitutes the encoder and File 2 only substitutes the decoder. Aft
 
 
 ###Debugging issue###
-Now the next step is to convert the embedding of input representations into that which conforms to BERT standard.
-Previously when using Transformer encoder, for each token, we embedded it into a 512-dimensional real-valued vector.
-BERT does not take input embedding in this fashion. Instead, it takes each token written as an id in a known dictionary. Need to convert embeddings into this id-representation.
+At the time being the input representation does not match the requirement of BERT model.
+Need to stop randomly trying and thoroughly study how things are defined in HF\src and how examples in HF\examples work.
+Besides, find other papers where BERT+GPT architecture is implemented, because those have solved problems we are to meet up with.
+
+No cursory work and take every step solid.
