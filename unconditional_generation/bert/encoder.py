@@ -40,7 +40,7 @@ class BertEncoder(nn.Module):
 
     def forward(self, src, add_noise, soft, lengths=None):
         """See :func:`EncoderBase.forward()`"""
-        self._check_args(src, lengths)
+        #self._check_args(src, lengths)
         emb = self.embeddings(src, soft=soft)  #emb [16,64,512] = [max_len, batchsize, d_emb]
         # max_len = lengths.max()  #added by shizhe
         max_len = src.shape[0] ## added by shizhe
