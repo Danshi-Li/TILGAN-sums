@@ -52,7 +52,7 @@ class BertEncoder(nn.Module):
         mask = ~sequence_mask(lengths, max_len).unsqueeze(1)
         # mask = ~sequence_mask(lengths).unsqueeze(1) #(64,1,33)
         # Run the forward pass of every layer of the tranformer.
-        for layer in self.bert:
+        for layer in self.bert._modules:
             out = layer(out, mask)
 
         if add_noise==True:
@@ -79,5 +79,5 @@ class BertEncoder(nn.Module):
 
     def update_dropout(self, dropout, attention_dropout):
         self.embeddings.update_dropout(dropout)
-        for layer in self.bert:
+        for layer in self.bert._modules:
             layer.update_dropout(dropout, attention_dropout)
