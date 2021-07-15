@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 from transformers import BertConfig, BertModel
 
-class BertEncoder(nn.module):
-	def __init__(self, add_noise, num_layers, d_model, heads, d_ff, dropout,attention_dropout, embeddings, max_relative_positions, aehidden):
-		super(BertEncoder, self).__init__()
-		self.aehidden = aehidden
+class BertEncoder(nn.Module):
+    def __init__(self, add_noise, num_layers, d_model, heads, d_ff, dropout,attention_dropout, embeddings, max_relative_positions, aehidden):
+        super(BertEncoder, self).__init__()
+        self.aehidden = aehidden
         self.embeddings = embeddings
 
         config = BertConfig(num_hidden_layers=num_layers, hidden_size=d_model, heads=num_attention_heads, attention_probs_dropout_prob=attention_dropout, hidden_dropout_prob=dropout, max_position_embeddings=max_relative_positions)
@@ -33,7 +33,7 @@ class BertEncoder(nn.module):
             embeddings,
             opt.max_relative_positions)
 
-	def forward(self, src, add_noise, soft, lengths=None):
+    def forward(self, src, add_noise, soft, lengths=None):
         """See :func:`EncoderBase.forward()`"""
         self._check_args(src, lengths)
         emb = self.embeddings(src, soft=soft)  #emb [16,64,512] = [max_len, batchsize, d_emb]
@@ -72,7 +72,7 @@ class BertEncoder(nn.module):
 
         return emb, memory_bank, lengths
 
-	def update_dropout(self, dropout, attention_dropout):
+    def update_dropout(self, dropout, attention_dropout):
         self.embeddings.update_dropout(dropout)
         for layer in self.bert:
             layer.update_dropout(dropout, attention_dropout)
