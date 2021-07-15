@@ -9,7 +9,7 @@ from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
 from transformers import BertTokenizer, BertModel, BertForMaskedLM
-
+from bert.encoder import BertEncoder
 
 class MLP_D(nn.Module):
     def __init__(self, ninput, noutput, layers,
@@ -422,7 +422,7 @@ class Seq2Seq(nn.Module):
 
 
 class AE_BERT_enc(nn.Module):
-    def __init__(self, BERTconfig, add_noise, emsize, nhidden, ntokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
+    def __init__(self, config, add_noise, emsize, nhidden, ntokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
                  hidden_init=False, dropout=0, gpu=True):
         super(AE_BERT_enc, self).__init__()
         self.nhidden = nhidden
@@ -455,7 +455,7 @@ class AE_BERT_enc(nn.Module):
         fullcontextalignment=False
         alignmentlayer=0
         alignmentheads=0
-        self.encoder = BertModel(BERTconfig)
+        self.encoder = BertEncoder(config, add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.embedding, max_rela_posi, aehidden)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 

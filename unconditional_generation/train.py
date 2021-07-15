@@ -201,7 +201,7 @@ print("Loaded data!")
 ###############################################################################
 bert_config = BertConfig()
 
-autoencoder = AE_BERT_enc(BERTconfig=bert_config, 
+autoencoder = AE_BERT_enc(config=bert_config, 
                       add_noise=args.add_noise,
                       emsize=args.emsize,
                       nhidden=args.nhidden,
@@ -362,7 +362,7 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     source, target, lengths = batch
     source = Variable(source.to(device))
     target = Variable(target.to(device))
-    output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=True)
+    output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False)
 
     mask = target.gt(0)
     masked_target = target.masked_select(mask)
