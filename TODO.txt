@@ -9,5 +9,6 @@ File 1 only substitutes the encoder and File 2 only substitutes the decoder. Aft
 
 
 ###Debugging issue###
-1.The input indices to BERT is of wrong dimensionality. Expected dim = 2, input din = 3 with the last dim of length 1. Need to reduce the last dim.
-  to solve this problem, need to update "models.py->AE_BERT_enc->forward()"
+Now the next step is to convert the embedding of input representations into that which conforms to BERT standard.
+Previously when using Transformer encoder, for each token, we embedded it into a 512-dimensional real-valued vector.
+BERT does not take input embedding in this fashion. Instead, it takes each token written as an id in a known dictionary. Need to convert embeddings into this id-representation.
