@@ -8,7 +8,7 @@ class BertEncoder(nn.Module):
         self.aehidden = aehidden
         self.embeddings = embeddings
 
-        config = BertConfig(num_hidden_layers=num_layers, hidden_size=d_model, heads=num_attention_heads, attention_probs_dropout_prob=attention_dropout, hidden_dropout_prob=dropout, max_position_embeddings=max_relative_positions)
+        config = BertConfig(num_hidden_layers=num_layers, hidden_size=d_model, num_attention_heads=heads, attention_probs_dropout_prob=attention_dropout, hidden_dropout_prob=dropout, max_position_embeddings=max_relative_positions)
         self.bert = BertModel(config)
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
 
