@@ -2,6 +2,11 @@ import torch
 import torch.nn as nn
 from transformers import BertConfig, BertModel
 
+from onmt.encoders.encoder import EncoderBase
+from onmt.modules.multi_headed_attn import MultiHeadedAttention
+from onmt.modules.position_ffn import PositionwiseFeedForward
+from onmt.utils.misc import sequence_mask
+
 class BertEncoder(nn.Module):
     def __init__(self, add_noise, num_layers, d_model, heads, d_ff, dropout,attention_dropout, embeddings, max_relative_positions, aehidden):
         super(BertEncoder, self).__init__()
