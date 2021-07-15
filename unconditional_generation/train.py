@@ -199,10 +199,8 @@ print("Loaded data!")
 ###############################################################################
 # Build the models
 ###############################################################################
-bert_config = BertConfig()
 
-autoencoder = AE_BERT_enc(config=bert_config, 
-                      add_noise=args.add_noise,
+autoencoder = AE_BERT_enc( add_noise=args.add_noise,
                       emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=args.ntokens,
