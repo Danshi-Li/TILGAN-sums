@@ -435,17 +435,15 @@ class AE_BERT_enc(nn.Module):
         self.gpu = gpu
 
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
-        # Bert Embedding
-        '''
+        # Transformer Embedding
+        
         self.embedding = Embeddings(
             word_vec_size=emsize,
             position_encoding=True,
             word_padding_idx=0,
             word_vocab_size=ntokens,
         )
-        '''
-        self.embedding = BertTokenizer(vocab_file=vocab)
-
+        
         # Transformer Encoder and Decoder
         # nheads = 8
         # nff = 2048
