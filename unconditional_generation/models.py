@@ -436,6 +436,14 @@ class AE_BERT_enc(nn.Module):
 
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         # Bert Embedding
+        '''
+        self.embedding = Embeddings(
+            word_vec_size=emsize,
+            position_encoding=True,
+            word_padding_idx=0,
+            word_vocab_size=ntokens,
+        )
+        '''
         self.embedding = BertTokenizer(vocab_file=vocab)
 
         # Transformer Encoder and Decoder
@@ -450,7 +458,7 @@ class AE_BERT_enc(nn.Module):
         fullcontextalignment=False
         alignmentlayer=0
         alignmentheads=0
-        self.encoder = BertEncoder(vocab, add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.embedding, max_rela_posi, aehidden)
+        self.encoder = BertEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.embedding, max_rela_posi, aehidden)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 
