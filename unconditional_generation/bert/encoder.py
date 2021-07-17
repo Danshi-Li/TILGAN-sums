@@ -52,8 +52,11 @@ class BertEncoder(nn.Module):
         mask = ~sequence_mask(lengths, max_len).unsqueeze(1)
         # mask = ~sequence_mask(lengths).unsqueeze(1) #(64,1,33)
         # Run the forward pass of every layer of the tranformer.
+        ''''
         for layer in self.bert._modules:
             out = layer(out, mask)
+        ''''
+        out = self.bert(out, attention_mask=mask)
 
         if add_noise==True:
             out = self.layer_norm(out)   #out [64, 33, 512]
