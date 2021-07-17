@@ -422,7 +422,7 @@ class Seq2Seq(nn.Module):
 
 
 class AE_BERT_enc(nn.Module):
-    def __init__(self, add_noise, emsize, nhidden, ntokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
+    def __init__(self, vocab, add_noise, emsize, nhidden, ntokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
                  hidden_init=False, dropout=0, gpu=True):
         super(AE_BERT_enc, self).__init__()
         self.nhidden = nhidden
@@ -435,13 +435,8 @@ class AE_BERT_enc(nn.Module):
         self.gpu = gpu
 
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
-        # Transformer Embedding
-        self.embedding = Embeddings(
-            word_vec_size=emsize,
-            position_encoding=True,
-            word_padding_idx=0,
-            word_vocab_size=ntokens,
-        )
+        # Bert Embedding
+        self.embedding = BertTokenizer(vocab_file=vocab)
 
         # Transformer Encoder and Decoder
         # nheads = 8
@@ -455,7 +450,7 @@ class AE_BERT_enc(nn.Module):
         fullcontextalignment=False
         alignmentlayer=0
         alignmentheads=0
-        self.encoder = BertEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.embedding, max_rela_posi, aehidden)
+        self.encoder = BertEncoder(vocab, add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.embedding, max_rela_posi, aehidden)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 

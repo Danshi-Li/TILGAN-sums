@@ -199,8 +199,8 @@ print("Loaded data!")
 ###############################################################################
 # Build the models
 ###############################################################################
-
-autoencoder = AE_BERT_enc( add_noise=args.add_noise,
+vocab = os.path.join(args.data_path, "vocab.pkl")
+autoencoder = AE_BERT_enc(vocab=vocab, add_noise=args.add_noise,
                       emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=args.ntokens,
