@@ -53,7 +53,7 @@ class BertEncoder(nn.Module):
         # mask = ~sequence_mask(lengths).unsqueeze(1) #(64,1,33)
         # Run the forward pass of every layer of the tranformer.
         
-        for layer in self.bert.modules:
+        for layer in self.bert.modules():
             out = layer(out, mask)
         
 
