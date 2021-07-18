@@ -457,7 +457,7 @@ class AE_BERT_enc(nn.Module):
         alignmentlayer=0
         alignmentheads=0
 
-        config = BertConfig(num_hidden_layers=num_layers, hidden_size=d_model, num_attention_heads=heads, attention_probs_dropout_prob=attention_dropout, hidden_dropout_prob=dropout, max_position_embeddings=max_relative_positions)
+        config = BertConfig(num_hidden_layers=nlayers, hidden_size=nhidden, num_attention_heads=nheads, attention_probs_dropout_prob=dropout, hidden_dropout_prob=dropout, max_position_embeddings=emsize)
         self.encoder = BertEncoder(config)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
