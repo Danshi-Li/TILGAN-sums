@@ -47,7 +47,7 @@ class BertEncoder(nn.Module):
         batch_size = src.shape[1]
         # print(max_len)
         #out = emb.transpose(0, 1).contiguous()  #out [64,33, 512]
-        out = src.unsqueeze(2)
+        out = src.squeeze(2)
         # if(max_len!=16):
         #     print(max_len)
         mask = ~sequence_mask(lengths, max_len).unsqueeze(1)
