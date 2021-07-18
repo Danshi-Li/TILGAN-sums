@@ -543,10 +543,11 @@ class AE_BERT_enc(nn.Module):
         #   lengths_tensor = torch.LongTensor(lengths)
         # lengths_tensor[:] = max(lengths_tensor)
         #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
-        bert_embedding = BertEmbeddings(self.config)
-        src=src.cuda()
-        tgt=tgt.cuda()
-        src = bert_embedding(src)
+        src = self.embedding(src,soft=soft)
+        max_len = src.shape[0] ## added by shizhe
+        batch_size = src.shape[1]
+        # print(max_len)
+        src = src.transpose(0, 1).contiguous()
         enc_state, memory_bank, lengths = self.encoder(src)
 
         if encode_only:
