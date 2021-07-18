@@ -549,7 +549,7 @@ class AE_BERT_enc(nn.Module):
         # print(max_len)
         src = src.transpose(0, 1).contiguous()
         memory_bank = self.encoder(src)
-
+        print(memory_bank)
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
             return memory_bank.transpose(0,1).contiguous().view(batchsize, -1)  #[64, 1600] doing concatenation
