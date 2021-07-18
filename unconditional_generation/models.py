@@ -553,11 +553,11 @@ class AE_BERT_enc(nn.Module):
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
             return memory_bank.transpose(0,1).contiguous().view(batchsize, -1)  #[64, 1600] doing concatenation
-        ''''
+        '''
         bptt = False
         if bptt is False:
             self.decoder.init_state(src, memory_bank, enc_state)
-        ''''
+        '''
         memory_bank = self.unsqueeze_hidden(memory_bank)
         dec_out, attns = self.decoder(tgt, memory_bank,
                                       memory_lengths=lengths_tensor,
