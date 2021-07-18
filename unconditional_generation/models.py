@@ -435,7 +435,7 @@ class AE_BERT_enc(nn.Module):
         self.gpu = gpu
 
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
-        config = BertConfig(num_hidden_layers=nlayers, hidden_size=nhidden, num_attention_heads=nheads, attention_probs_dropout_prob=dropout, hidden_dropout_prob=dropout, max_position_embeddings=emsize)
+        self.config = BertConfig(num_hidden_layers=nlayers, hidden_size=nhidden, num_attention_heads=nheads, attention_probs_dropout_prob=dropout, hidden_dropout_prob=dropout, max_position_embeddings=emsize)
         
         # Transformer embedding
         self.embedding = Embeddings(
@@ -458,7 +458,7 @@ class AE_BERT_enc(nn.Module):
         alignmentlayer=0
         alignmentheads=0
 
-        self.encoder = BertEncoder(config)
+        self.encoder = BertEncoder(self.config)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 
@@ -543,7 +543,7 @@ class AE_BERT_enc(nn.Module):
         #   lengths_tensor = torch.LongTensor(lengths)
         # lengths_tensor[:] = max(lengths_tensor)
         #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
-        bert_embedding = BertEmbeddings(config)
+        bert_embedding = BertEmbeddings(self.config)
         src = bert_embedding(src)
         enc_state, memory_bank, lengths = self.encoder(src)
 
