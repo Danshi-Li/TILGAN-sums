@@ -893,95 +893,95 @@ class BertForPreTraining(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @replace_return_docstrings(output_type=BertForPreTrainingOutput, config_class=_CONFIG_FOR_DOC)
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        next_sentence_label=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        **kwargs
-    ):
-        r"""
-        labels (:obj:`torch.LongTensor` of shape ``(batch_size, sequence_length)``, `optional`):
-            Labels for computing the masked language modeling loss. Indices should be in ``[-100, 0, ...,
-            config.vocab_size]`` (see ``input_ids`` docstring) Tokens with indices set to ``-100`` are ignored
-            (masked), the loss is only computed for the tokens with labels in ``[0, ..., config.vocab_size]``
-        next_sentence_label (``torch.LongTensor`` of shape ``(batch_size,)``, `optional`):
-            Labels for computing the next sequence prediction (classification) loss. Input should be a sequence pair
-            (see :obj:`input_ids` docstring) Indices should be in ``[0, 1]``:
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+@replace_return_docstrings(output_type=BertForPreTrainingOutput, config_class=_CONFIG_FOR_DOC)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    labels=None,
+    next_sentence_label=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+    **kwargs
+):
+    r"""
+    labels (:obj:`torch.LongTensor` of shape ``(batch_size, sequence_length)``, `optional`):
+        Labels for computing the masked language modeling loss. Indices should be in ``[-100, 0, ...,
+        config.vocab_size]`` (see ``input_ids`` docstring) Tokens with indices set to ``-100`` are ignored
+        (masked), the loss is only computed for the tokens with labels in ``[0, ..., config.vocab_size]``
+    next_sentence_label (``torch.LongTensor`` of shape ``(batch_size,)``, `optional`):
+        Labels for computing the next sequence prediction (classification) loss. Input should be a sequence pair
+        (see :obj:`input_ids` docstring) Indices should be in ``[0, 1]``:
 
-            - 0 indicates sequence B is a continuation of sequence A,
-            - 1 indicates sequence B is a random sequence.
-        kwargs (:obj:`Dict[str, any]`, optional, defaults to `{}`):
-            Used to hide legacy arguments that have been deprecated.
+        - 0 indicates sequence B is a continuation of sequence A,
+        - 1 indicates sequence B is a random sequence.
+    kwargs (:obj:`Dict[str, any]`, optional, defaults to `{}`):
+        Used to hide legacy arguments that have been deprecated.
 
-        Returns:
+    Returns:
 
-        Example::
+    Example::
 
-            >>> from transformers import BertTokenizer, BertForPreTraining
-            >>> import torch
+        >>> from transformers import BertTokenizer, BertForPreTraining
+        >>> import torch
 
-            >>> tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-            >>> model = BertForPreTraining.from_pretrained('bert-base-uncased', return_dict=True)
+        >>> tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        >>> model = BertForPreTraining.from_pretrained('bert-base-uncased', return_dict=True)
 
-            >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
-            >>> outputs = model(**inputs)
+        >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
+        >>> outputs = model(**inputs)
 
-            >>> prediction_logits = outputs.prediction_logits
-            >>> seq_relationship_logits = outputs.seq_relationship_logits
-        """
-        if "masked_lm_labels" in kwargs:
-            warnings.warn(
-                "The `masked_lm_labels` argument is deprecated and will be removed in a future version, use `labels` instead.",
-                FutureWarning,
-            )
-            labels = kwargs.pop("masked_lm_labels")
-        assert kwargs == {}, f"Unexpected keyword arguments: {list(kwargs.keys())}."
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
+        >>> prediction_logits = outputs.prediction_logits
+        >>> seq_relationship_logits = outputs.seq_relationship_logits
+    """
+    if "masked_lm_labels" in kwargs:
+        warnings.warn(
+            "The `masked_lm_labels` argument is deprecated and will be removed in a future version, use `labels` instead.",
+            FutureWarning,
         )
+        labels = kwargs.pop("masked_lm_labels")
+    assert kwargs == {}, f"Unexpected keyword arguments: {list(kwargs.keys())}."
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        sequence_output, pooled_output = outputs[:2]
-        prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
+    )
 
-        total_loss = None
-        if labels is not None and next_sentence_label is not None:
-            loss_fct = CrossEntropyLoss()
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
-            next_sentence_loss = loss_fct(seq_relationship_score.view(-1, 2), next_sentence_label.view(-1))
-            total_loss = masked_lm_loss + next_sentence_loss
+    sequence_output, pooled_output = outputs[:2]
+    prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
 
-        if not return_dict:
-            output = (prediction_scores, seq_relationship_score) + outputs[2:]
-            return ((total_loss,) + output) if total_loss is not None else output
+    total_loss = None
+    if labels is not None and next_sentence_label is not None:
+        loss_fct = CrossEntropyLoss()
+        masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
+        next_sentence_loss = loss_fct(seq_relationship_score.view(-1, 2), next_sentence_label.view(-1))
+        total_loss = masked_lm_loss + next_sentence_loss
 
-        return BertForPreTrainingOutput(
-            loss=total_loss,
-            prediction_logits=prediction_scores,
-            seq_relationship_logits=seq_relationship_score,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+    if not return_dict:
+        output = (prediction_scores, seq_relationship_score) + outputs[2:]
+        return ((total_loss,) + output) if total_loss is not None else output
+
+    return BertForPreTrainingOutput(
+        loss=total_loss,
+        prediction_logits=prediction_scores,
+        seq_relationship_logits=seq_relationship_score,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
 
 
 
@@ -1011,103 +1011,103 @@ class BertLMHeadModel(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @replace_return_docstrings(output_type=CausalLMOutputWithCrossAttentions, config_class=_CONFIG_FOR_DOC)
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
-        r"""
-        encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
-            Sequence of hidden-states at the output of the last layer of the encoder. Used in the cross-attention if
-            the model is configured as a decoder.
-        encoder_attention_mask (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Mask to avoid performing attention on the padding token indices of the encoder input. This mask is used in
-            the cross-attention if the model is configured as a decoder. Mask values selected in ``[0, 1]``:
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+@replace_return_docstrings(output_type=CausalLMOutputWithCrossAttentions, config_class=_CONFIG_FOR_DOC)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    encoder_hidden_states=None,
+    encoder_attention_mask=None,
+    labels=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+):
+    r"""
+    encoder_hidden_states  (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, hidden_size)`, `optional`):
+        Sequence of hidden-states at the output of the last layer of the encoder. Used in the cross-attention if
+        the model is configured as a decoder.
+    encoder_attention_mask (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
+        Mask to avoid performing attention on the padding token indices of the encoder input. This mask is used in
+        the cross-attention if the model is configured as a decoder. Mask values selected in ``[0, 1]``:
 
-            - 1 for tokens that are **not masked**,
-            - 0 for tokens that are **masked**.
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Labels for computing the left-to-right language modeling loss (next word prediction). Indices should be in
-            ``[-100, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring) Tokens with indices set to ``-100`` are
-            ignored (masked), the loss is only computed for the tokens with labels n ``[0, ..., config.vocab_size]``
+        - 1 for tokens that are **not masked**,
+        - 0 for tokens that are **masked**.
+    labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
+        Labels for computing the left-to-right language modeling loss (next word prediction). Indices should be in
+        ``[-100, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring) Tokens with indices set to ``-100`` are
+        ignored (masked), the loss is only computed for the tokens with labels n ``[0, ..., config.vocab_size]``
 
-        Returns:
+    Returns:
 
-        Example::
+    Example::
 
-            >>> from transformers import BertTokenizer, BertLMHeadModel, BertConfig
-            >>> import torch
+        >>> from transformers import BertTokenizer, BertLMHeadModel, BertConfig
+        >>> import torch
 
-            >>> tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-            >>> config = BertConfig.from_pretrained("bert-base-cased")
-            >>> config.is_decoder = True
-            >>> model = BertLMHeadModel.from_pretrained('bert-base-cased', config=config, return_dict=True)
+        >>> tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        >>> config = BertConfig.from_pretrained("bert-base-cased")
+        >>> config.is_decoder = True
+        >>> model = BertLMHeadModel.from_pretrained('bert-base-cased', config=config, return_dict=True)
 
-            >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
-            >>> outputs = model(**inputs)
+        >>> inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
+        >>> outputs = model(**inputs)
 
-            >>> prediction_logits = outputs.logits
-        """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        >>> prediction_logits = outputs.logits
+    """
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_attention_mask,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        encoder_hidden_states=encoder_hidden_states,
+        encoder_attention_mask=encoder_attention_mask,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
+    )
 
-        sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+    sequence_output = outputs[0]
+    prediction_scores = self.cls(sequence_output)
 
-        lm_loss = None
-        if labels is not None:
-            # we are doing next-token prediction; shift prediction scores and input ids by one
-            shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
-            labels = labels[:, 1:].contiguous()
-            loss_fct = CrossEntropyLoss()
-            lm_loss = loss_fct(shifted_prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
+    lm_loss = None
+    if labels is not None:
+        # we are doing next-token prediction; shift prediction scores and input ids by one
+        shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
+        labels = labels[:, 1:].contiguous()
+        loss_fct = CrossEntropyLoss()
+        lm_loss = loss_fct(shifted_prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
 
-        if not return_dict:
-            output = (prediction_scores,) + outputs[2:]
-            return ((lm_loss,) + output) if lm_loss is not None else output
+    if not return_dict:
+        output = (prediction_scores,) + outputs[2:]
+        return ((lm_loss,) + output) if lm_loss is not None else output
 
-        return CausalLMOutputWithCrossAttentions(
-            loss=lm_loss,
-            logits=prediction_scores,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-            cross_attentions=outputs.cross_attentions,
-        )
+    return CausalLMOutputWithCrossAttentions(
+        loss=lm_loss,
+        logits=prediction_scores,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+        cross_attentions=outputs.cross_attentions,
+    )
 
 
-    def prepare_inputs_for_generation(self, input_ids, attention_mask=None, **model_kwargs):
-        input_shape = input_ids.shape
+def prepare_inputs_for_generation(self, input_ids, attention_mask=None, **model_kwargs):
+    input_shape = input_ids.shape
 
-        # if model is used as a decoder in encoder-decoder model, the decoder attention mask is created on the fly
-        if attention_mask is None:
-            attention_mask = input_ids.new_ones(input_shape)
+    # if model is used as a decoder in encoder-decoder model, the decoder attention mask is created on the fly
+    if attention_mask is None:
+        attention_mask = input_ids.new_ones(input_shape)
 
-        return {"input_ids": input_ids, "attention_mask": attention_mask}
+    return {"input_ids": input_ids, "attention_mask": attention_mask}
 
 
 
@@ -1138,95 +1138,95 @@ class BertForMaskedLM(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @add_code_sample_docstrings(
-        tokenizer_class=_TOKENIZER_FOR_DOC,
-        checkpoint="bert-base-uncased",
-        output_type=MaskedLMOutput,
-        config_class=_CONFIG_FOR_DOC,
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+@add_code_sample_docstrings(
+    tokenizer_class=_TOKENIZER_FOR_DOC,
+    checkpoint="bert-base-uncased",
+    output_type=MaskedLMOutput,
+    config_class=_CONFIG_FOR_DOC,
+)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    encoder_hidden_states=None,
+    encoder_attention_mask=None,
+    labels=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+    **kwargs
+):
+    r"""
+    labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
+        Labels for computing the masked language modeling loss. Indices should be in ``[-100, 0, ...,
+        config.vocab_size]`` (see ``input_ids`` docstring) Tokens with indices set to ``-100`` are ignored
+        (masked), the loss is only computed for the tokens with labels in ``[0, ..., config.vocab_size]``
+    kwargs (:obj:`Dict[str, any]`, optional, defaults to `{}`):
+        Used to hide legacy arguments that have been deprecated.
+    """
+    if "masked_lm_labels" in kwargs:
+        warnings.warn(
+            "The `masked_lm_labels` argument is deprecated and will be removed in a future version, use `labels` instead.",
+            FutureWarning,
+        )
+        labels = kwargs.pop("masked_lm_labels")
+    assert "lm_labels" not in kwargs, "Use `BertWithLMHead` for autoregressive language modeling task."
+    assert kwargs == {}, f"Unexpected keyword arguments: {list(kwargs.keys())}."
+
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        encoder_hidden_states=encoder_hidden_states,
+        encoder_attention_mask=encoder_attention_mask,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
     )
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        encoder_hidden_states=None,
-        encoder_attention_mask=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        **kwargs
-    ):
-        r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Labels for computing the masked language modeling loss. Indices should be in ``[-100, 0, ...,
-            config.vocab_size]`` (see ``input_ids`` docstring) Tokens with indices set to ``-100`` are ignored
-            (masked), the loss is only computed for the tokens with labels in ``[0, ..., config.vocab_size]``
-        kwargs (:obj:`Dict[str, any]`, optional, defaults to `{}`):
-            Used to hide legacy arguments that have been deprecated.
-        """
-        if "masked_lm_labels" in kwargs:
-            warnings.warn(
-                "The `masked_lm_labels` argument is deprecated and will be removed in a future version, use `labels` instead.",
-                FutureWarning,
-            )
-            labels = kwargs.pop("masked_lm_labels")
-        assert "lm_labels" not in kwargs, "Use `BertWithLMHead` for autoregressive language modeling task."
-        assert kwargs == {}, f"Unexpected keyword arguments: {list(kwargs.keys())}."
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+    sequence_output = outputs[0]
+    prediction_scores = self.cls(sequence_output)
 
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_attention_mask,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+    masked_lm_loss = None
+    if labels is not None:
+        loss_fct = CrossEntropyLoss()  # -100 index = padding token
+        masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
 
-        sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
+    if not return_dict:
+        output = (prediction_scores,) + outputs[2:]
+        return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
 
-        masked_lm_loss = None
-        if labels is not None:
-            loss_fct = CrossEntropyLoss()  # -100 index = padding token
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
-
-        if not return_dict:
-            output = (prediction_scores,) + outputs[2:]
-            return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
-
-        return MaskedLMOutput(
-            loss=masked_lm_loss,
-            logits=prediction_scores,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+    return MaskedLMOutput(
+        loss=masked_lm_loss,
+        logits=prediction_scores,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
 
 
-    def prepare_inputs_for_generation(self, input_ids, attention_mask=None, **model_kwargs):
-        input_shape = input_ids.shape
-        effective_batch_size = input_shape[0]
+def prepare_inputs_for_generation(self, input_ids, attention_mask=None, **model_kwargs):
+    input_shape = input_ids.shape
+    effective_batch_size = input_shape[0]
 
-        #  add a dummy token
-        assert self.config.pad_token_id is not None, "The PAD token should be defined for generation"
-        attention_mask = torch.cat([attention_mask, attention_mask.new_zeros((attention_mask.shape[0], 1))], dim=-1)
-        dummy_token = torch.full(
-            (effective_batch_size, 1), self.config.pad_token_id, dtype=torch.long, device=input_ids.device
-        )
-        input_ids = torch.cat([input_ids, dummy_token], dim=1)
+    #  add a dummy token
+    assert self.config.pad_token_id is not None, "The PAD token should be defined for generation"
+    attention_mask = torch.cat([attention_mask, attention_mask.new_zeros((attention_mask.shape[0], 1))], dim=-1)
+    dummy_token = torch.full(
+        (effective_batch_size, 1), self.config.pad_token_id, dtype=torch.long, device=input_ids.device
+    )
+    input_ids = torch.cat([input_ids, dummy_token], dim=1)
 
-        return {"input_ids": input_ids, "attention_mask": attention_mask}
+    return {"input_ids": input_ids, "attention_mask": attention_mask}
 
 
 
@@ -1247,89 +1247,89 @@ class BertForNextSentencePrediction(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @replace_return_docstrings(output_type=NextSentencePredictorOutput, config_class=_CONFIG_FOR_DOC)
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-        **kwargs
-    ):
-        r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for computing the next sequence prediction (classification) loss. Input should be a sequence pair
-            (see ``input_ids`` docstring). Indices should be in ``[0, 1]``:
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+@replace_return_docstrings(output_type=NextSentencePredictorOutput, config_class=_CONFIG_FOR_DOC)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    labels=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+    **kwargs
+):
+    r"""
+    labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+        Labels for computing the next sequence prediction (classification) loss. Input should be a sequence pair
+        (see ``input_ids`` docstring). Indices should be in ``[0, 1]``:
 
-            - 0 indicates sequence B is a continuation of sequence A,
-            - 1 indicates sequence B is a random sequence.
+        - 0 indicates sequence B is a continuation of sequence A,
+        - 1 indicates sequence B is a random sequence.
 
-        Returns:
+    Returns:
 
-        Example::
+    Example::
 
-            >>> from transformers import BertTokenizer, BertForNextSentencePrediction
-            >>> import torch
+        >>> from transformers import BertTokenizer, BertForNextSentencePrediction
+        >>> import torch
 
-            >>> tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-            >>> model = BertForNextSentencePrediction.from_pretrained('bert-base-uncased', return_dict=True)
+        >>> tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        >>> model = BertForNextSentencePrediction.from_pretrained('bert-base-uncased', return_dict=True)
 
-            >>> prompt = "In Italy, pizza served in formal settings, such as at a restaurant, is presented unsliced."
-            >>> next_sentence = "The sky is blue due to the shorter wavelength of blue light."
-            >>> encoding = tokenizer(prompt, next_sentence, return_tensors='pt')
+        >>> prompt = "In Italy, pizza served in formal settings, such as at a restaurant, is presented unsliced."
+        >>> next_sentence = "The sky is blue due to the shorter wavelength of blue light."
+        >>> encoding = tokenizer(prompt, next_sentence, return_tensors='pt')
 
-            >>> outputs = model(**encoding, labels=torch.LongTensor([1]))
-            >>> logits = outputs.logits
-            >>> assert logits[0, 0] < logits[0, 1] # next sentence was random
-        """
+        >>> outputs = model(**encoding, labels=torch.LongTensor([1]))
+        >>> logits = outputs.logits
+        >>> assert logits[0, 0] < logits[0, 1] # next sentence was random
+    """
 
-        if "next_sentence_label" in kwargs:
-            warnings.warn(
-                "The `next_sentence_label` argument is deprecated and will be removed in a future version, use `labels` instead.",
-                FutureWarning,
-            )
-            labels = kwargs.pop("next_sentence_label")
-
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
+    if "next_sentence_label" in kwargs:
+        warnings.warn(
+            "The `next_sentence_label` argument is deprecated and will be removed in a future version, use `labels` instead.",
+            FutureWarning,
         )
+        labels = kwargs.pop("next_sentence_label")
 
-        pooled_output = outputs[1]
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        seq_relationship_scores = self.cls(pooled_output)
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
+    )
 
-        next_sentence_loss = None
-        if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            next_sentence_loss = loss_fct(seq_relationship_scores.view(-1, 2), labels.view(-1))
+    pooled_output = outputs[1]
 
-        if not return_dict:
-            output = (seq_relationship_scores,) + outputs[2:]
-            return ((next_sentence_loss,) + output) if next_sentence_loss is not None else output
+    seq_relationship_scores = self.cls(pooled_output)
 
-        return NextSentencePredictorOutput(
-            loss=next_sentence_loss,
-            logits=seq_relationship_scores,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+    next_sentence_loss = None
+    if labels is not None:
+        loss_fct = CrossEntropyLoss()
+        next_sentence_loss = loss_fct(seq_relationship_scores.view(-1, 2), labels.view(-1))
+
+    if not return_dict:
+        output = (seq_relationship_scores,) + outputs[2:]
+        return ((next_sentence_loss,) + output) if next_sentence_loss is not None else output
+
+    return NextSentencePredictorOutput(
+        loss=next_sentence_loss,
+        logits=seq_relationship_scores,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
 
 
 
@@ -1355,71 +1355,71 @@ class BertForSequenceClassification(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @add_code_sample_docstrings(
-        tokenizer_class=_TOKENIZER_FOR_DOC,
-        checkpoint="bert-base-uncased",
-        output_type=SequenceClassifierOutput,
-        config_class=_CONFIG_FOR_DOC,
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+@add_code_sample_docstrings(
+    tokenizer_class=_TOKENIZER_FOR_DOC,
+    checkpoint="bert-base-uncased",
+    output_type=SequenceClassifierOutput,
+    config_class=_CONFIG_FOR_DOC,
+)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    labels=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+):
+    r"""
+    labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+        Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
+        config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
+        If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
+    """
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
     )
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
-        r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for computing the sequence classification/regression loss. Indices should be in :obj:`[0, ...,
-            config.num_labels - 1]`. If :obj:`config.num_labels == 1` a regression loss is computed (Mean-Square loss),
-            If :obj:`config.num_labels > 1` a classification loss is computed (Cross-Entropy).
-        """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+    pooled_output = outputs[1]
 
-        pooled_output = outputs[1]
+    pooled_output = self.dropout(pooled_output)
+    logits = self.classifier(pooled_output)
 
-        pooled_output = self.dropout(pooled_output)
-        logits = self.classifier(pooled_output)
+    loss = None
+    if labels is not None:
+        if self.num_labels == 1:
+            #  We are doing regression
+            loss_fct = MSELoss()
+            loss = loss_fct(logits.view(-1), labels.view(-1))
+        else:
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
 
-        loss = None
-        if labels is not None:
-            if self.num_labels == 1:
-                #  We are doing regression
-                loss_fct = MSELoss()
-                loss = loss_fct(logits.view(-1), labels.view(-1))
-            else:
-                loss_fct = CrossEntropyLoss()
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+    if not return_dict:
+        output = (logits,) + outputs[2:]
+        return ((loss,) + output) if loss is not None else output
 
-        if not return_dict:
-            output = (logits,) + outputs[2:]
-            return ((loss,) + output) if loss is not None else output
-
-        return SequenceClassifierOutput(
-            loss=loss,
-            logits=logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+    return SequenceClassifierOutput(
+        loss=loss,
+        logits=logits,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
 
 
 
@@ -1444,78 +1444,78 @@ class BertForMultipleChoice(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length"))
-    @add_code_sample_docstrings(
-        tokenizer_class=_TOKENIZER_FOR_DOC,
-        checkpoint="bert-base-uncased",
-        output_type=MultipleChoiceModelOutput,
-        config_class=_CONFIG_FOR_DOC,
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, num_choices, sequence_length"))
+@add_code_sample_docstrings(
+    tokenizer_class=_TOKENIZER_FOR_DOC,
+    checkpoint="bert-base-uncased",
+    output_type=MultipleChoiceModelOutput,
+    config_class=_CONFIG_FOR_DOC,
+)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    labels=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+):
+    r"""
+    labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+        Labels for computing the multiple choice classification loss. Indices should be in ``[0, ...,
+        num_choices-1]`` where :obj:`num_choices` is the size of the second dimension of the input tensors. (See
+        :obj:`input_ids` above)
+    """
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+    num_choices = input_ids.shape[1] if input_ids is not None else inputs_embeds.shape[1]
+
+    input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
+    attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
+    token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
+    position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
+    inputs_embeds = (
+        inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
+        if inputs_embeds is not None
+        else None
     )
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
-        r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for computing the multiple choice classification loss. Indices should be in ``[0, ...,
-            num_choices-1]`` where :obj:`num_choices` is the size of the second dimension of the input tensors. (See
-            :obj:`input_ids` above)
-        """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        num_choices = input_ids.shape[1] if input_ids is not None else inputs_embeds.shape[1]
 
-        input_ids = input_ids.view(-1, input_ids.size(-1)) if input_ids is not None else None
-        attention_mask = attention_mask.view(-1, attention_mask.size(-1)) if attention_mask is not None else None
-        token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1)) if token_type_ids is not None else None
-        position_ids = position_ids.view(-1, position_ids.size(-1)) if position_ids is not None else None
-        inputs_embeds = (
-            inputs_embeds.view(-1, inputs_embeds.size(-2), inputs_embeds.size(-1))
-            if inputs_embeds is not None
-            else None
-        )
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
+    )
 
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+    pooled_output = outputs[1]
 
-        pooled_output = outputs[1]
+    pooled_output = self.dropout(pooled_output)
+    logits = self.classifier(pooled_output)
+    reshaped_logits = logits.view(-1, num_choices)
 
-        pooled_output = self.dropout(pooled_output)
-        logits = self.classifier(pooled_output)
-        reshaped_logits = logits.view(-1, num_choices)
+    loss = None
+    if labels is not None:
+        loss_fct = CrossEntropyLoss()
+        loss = loss_fct(reshaped_logits, labels)
 
-        loss = None
-        if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            loss = loss_fct(reshaped_logits, labels)
+    if not return_dict:
+        output = (reshaped_logits,) + outputs[2:]
+        return ((loss,) + output) if loss is not None else output
 
-        if not return_dict:
-            output = (reshaped_logits,) + outputs[2:]
-            return ((loss,) + output) if loss is not None else output
-
-        return MultipleChoiceModelOutput(
-            loss=loss,
-            logits=reshaped_logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+    return MultipleChoiceModelOutput(
+        loss=loss,
+        logits=reshaped_logits,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
 
 
 
@@ -1544,74 +1544,74 @@ class BertForTokenClassification(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @add_code_sample_docstrings(
-        tokenizer_class=_TOKENIZER_FOR_DOC,
-        checkpoint="bert-base-uncased",
-        output_type=TokenClassifierOutput,
-        config_class=_CONFIG_FOR_DOC,
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+@add_code_sample_docstrings(
+    tokenizer_class=_TOKENIZER_FOR_DOC,
+    checkpoint="bert-base-uncased",
+    output_type=TokenClassifierOutput,
+    config_class=_CONFIG_FOR_DOC,
+)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    labels=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+):
+    r"""
+    labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
+        Labels for computing the token classification loss. Indices should be in ``[0, ..., config.num_labels -
+        1]``.
+    """
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
     )
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
-        r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-            Labels for computing the token classification loss. Indices should be in ``[0, ..., config.num_labels -
-            1]``.
-        """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+    sequence_output = outputs[0]
 
-        sequence_output = outputs[0]
+    sequence_output = self.dropout(sequence_output)
+    logits = self.classifier(sequence_output)
 
-        sequence_output = self.dropout(sequence_output)
-        logits = self.classifier(sequence_output)
+    loss = None
+    if labels is not None:
+        loss_fct = CrossEntropyLoss()
+        # Only keep active parts of the loss
+        if attention_mask is not None:
+            active_loss = attention_mask.view(-1) == 1
+            active_logits = logits.view(-1, self.num_labels)
+            active_labels = torch.where(
+                active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
+            )
+            loss = loss_fct(active_logits, active_labels)
+        else:
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
 
-        loss = None
-        if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            # Only keep active parts of the loss
-            if attention_mask is not None:
-                active_loss = attention_mask.view(-1) == 1
-                active_logits = logits.view(-1, self.num_labels)
-                active_labels = torch.where(
-                    active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
-                )
-                loss = loss_fct(active_logits, active_labels)
-            else:
-                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+    if not return_dict:
+        output = (logits,) + outputs[2:]
+        return ((loss,) + output) if loss is not None else output
 
-        if not return_dict:
-            output = (logits,) + outputs[2:]
-            return ((loss,) + output) if loss is not None else output
-
-        return TokenClassifierOutput(
-            loss=loss,
-            logits=logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+    return TokenClassifierOutput(
+        loss=loss,
+        logits=logits,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
 
 
 
@@ -1639,83 +1639,83 @@ class BertForQuestionAnswering(BertPreTrainedModel):
 
 
 [DOCS]
-    @add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
-    @add_code_sample_docstrings(
-        tokenizer_class=_TOKENIZER_FOR_DOC,
-        checkpoint="bert-base-uncased",
-        output_type=QuestionAnsweringModelOutput,
-        config_class=_CONFIG_FOR_DOC,
+@add_start_docstrings_to_model_forward(BERT_INPUTS_DOCSTRING.format("batch_size, sequence_length"))
+@add_code_sample_docstrings(
+    tokenizer_class=_TOKENIZER_FOR_DOC,
+    checkpoint="bert-base-uncased",
+    output_type=QuestionAnsweringModelOutput,
+    config_class=_CONFIG_FOR_DOC,
+)
+def forward(
+    self,
+    input_ids=None,
+    attention_mask=None,
+    token_type_ids=None,
+    position_ids=None,
+    head_mask=None,
+    inputs_embeds=None,
+    start_positions=None,
+    end_positions=None,
+    output_attentions=None,
+    output_hidden_states=None,
+    return_dict=None,
+):
+    r"""
+    start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+        Labels for position (index) of the start of the labelled span for computing the token classification loss.
+        Positions are clamped to the length of the sequence (:obj:`sequence_length`). Position outside of the
+        sequence are not taken into account for computing the loss.
+    end_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
+        Labels for position (index) of the end of the labelled span for computing the token classification loss.
+        Positions are clamped to the length of the sequence (:obj:`sequence_length`). Position outside of the
+        sequence are not taken into account for computing the loss.
+    """
+    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+    outputs = self.bert(
+        input_ids,
+        attention_mask=attention_mask,
+        token_type_ids=token_type_ids,
+        position_ids=position_ids,
+        head_mask=head_mask,
+        inputs_embeds=inputs_embeds,
+        output_attentions=output_attentions,
+        output_hidden_states=output_hidden_states,
+        return_dict=return_dict,
     )
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        start_positions=None,
-        end_positions=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
-        r"""
-        start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for position (index) of the start of the labelled span for computing the token classification loss.
-            Positions are clamped to the length of the sequence (:obj:`sequence_length`). Position outside of the
-            sequence are not taken into account for computing the loss.
-        end_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`):
-            Labels for position (index) of the end of the labelled span for computing the token classification loss.
-            Positions are clamped to the length of the sequence (:obj:`sequence_length`). Position outside of the
-            sequence are not taken into account for computing the loss.
-        """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        outputs = self.bert(
-            input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
+    sequence_output = outputs[0]
 
-        sequence_output = outputs[0]
+    logits = self.qa_outputs(sequence_output)
+    start_logits, end_logits = logits.split(1, dim=-1)
+    start_logits = start_logits.squeeze(-1)
+    end_logits = end_logits.squeeze(-1)
 
-        logits = self.qa_outputs(sequence_output)
-        start_logits, end_logits = logits.split(1, dim=-1)
-        start_logits = start_logits.squeeze(-1)
-        end_logits = end_logits.squeeze(-1)
+    total_loss = None
+    if start_positions is not None and end_positions is not None:
+        # If we are on multi-GPU, split add a dimension
+        if len(start_positions.size()) > 1:
+            start_positions = start_positions.squeeze(-1)
+        if len(end_positions.size()) > 1:
+            end_positions = end_positions.squeeze(-1)
+        # sometimes the start/end positions are outside our model inputs, we ignore these terms
+        ignored_index = start_logits.size(1)
+        start_positions.clamp_(0, ignored_index)
+        end_positions.clamp_(0, ignored_index)
 
-        total_loss = None
-        if start_positions is not None and end_positions is not None:
-            # If we are on multi-GPU, split add a dimension
-            if len(start_positions.size()) > 1:
-                start_positions = start_positions.squeeze(-1)
-            if len(end_positions.size()) > 1:
-                end_positions = end_positions.squeeze(-1)
-            # sometimes the start/end positions are outside our model inputs, we ignore these terms
-            ignored_index = start_logits.size(1)
-            start_positions.clamp_(0, ignored_index)
-            end_positions.clamp_(0, ignored_index)
+        loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
+        start_loss = loss_fct(start_logits, start_positions)
+        end_loss = loss_fct(end_logits, end_positions)
+        total_loss = (start_loss + end_loss) / 2
 
-            loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
-            start_loss = loss_fct(start_logits, start_positions)
-            end_loss = loss_fct(end_logits, end_positions)
-            total_loss = (start_loss + end_loss) / 2
+    if not return_dict:
+        output = (start_logits, end_logits) + outputs[2:]
+        return ((total_loss,) + output) if total_loss is not None else output
 
-        if not return_dict:
-            output = (start_logits, end_logits) + outputs[2:]
-            return ((total_loss,) + output) if total_loss is not None else output
-
-        return QuestionAnsweringModelOutput(
-            loss=total_loss,
-            start_logits=start_logits,
-            end_logits=end_logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+    return QuestionAnsweringModelOutput(
+        loss=total_loss,
+        start_logits=start_logits,
+        end_logits=end_logits,
+        hidden_states=outputs.hidden_states,
+        attentions=outputs.attentions,
+    )
