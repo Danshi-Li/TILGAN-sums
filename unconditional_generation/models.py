@@ -559,6 +559,9 @@ class AE_BERT_enc(nn.Module):
             self.decoder.init_state(src, memory_bank, enc_state)
         '''
         memory_bank = self.unsqueeze_hidden(memory_bank)
+
+        print("Successfully attained latent output from encoder")
+
         dec_out, attns = self.decoder(tgt, memory_bank,
                                       memory_lengths=lengths_tensor,
                                       with_align=False)
