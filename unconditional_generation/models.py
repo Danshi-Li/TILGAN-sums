@@ -8,7 +8,7 @@ from onmt.decoders.transformer import TransformerDecoder
 from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
-from transformers import BertTokenizer, BertModel, BertForMaskedLM
+from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
 from bert.encoder import BertEncoder
 
 class MLP_D(nn.Module):
@@ -456,7 +456,9 @@ class AE_BERT_enc(nn.Module):
         fullcontextalignment=False
         alignmentlayer=0
         alignmentheads=0
-        self.encoder = BertEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.embedding, max_rela_posi, aehidden)
+
+        config = BertConfig(num_hidden_layers=num_layers, hidden_size=d_model, num_attention_heads=heads, attention_probs_dropout_prob=attention_dropout, hidden_dropout_prob=dropout, max_position_embeddings=max_relative_positions)
+        self.encoder = BertEncoder(config)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 
@@ -540,7 +542,8 @@ class AE_BERT_enc(nn.Module):
             lengths_tensor = torch.LongTensor(lengths)  #[64]
         #   lengths_tensor = torch.LongTensor(lengths)
         # lengths_tensor[:] = max(lengths_tensor)
-        enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
+        #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
+        enc_state, memory_bank, lengths = self.encoder(src)
 
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
