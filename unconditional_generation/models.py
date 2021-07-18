@@ -8,8 +8,8 @@ from onmt.decoders.transformer import TransformerDecoder
 from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
-from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, BertEmbeddings
-from bert.encoder import BertEncoder
+from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
+from bert.encoder import BertEncoder, BertEmbeddings
 
 class MLP_D(nn.Module):
     def __init__(self, ninput, noutput, layers,
