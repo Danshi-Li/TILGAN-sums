@@ -433,11 +433,11 @@ class AE_BERT_enc(nn.Module):
         self.hidden_init = hidden_init
         self.dropout = dropout
         self.gpu = gpu
-
+        self.config = BertConfig(num_hidden_layers=nlayers, hidden_size=aehidden, num_attention_heads=nheads, attention_probs_dropout_prob=dropout, hidden_dropout_prob=dropout, max_position_embeddings=emsize)
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         
         # Transformer embedding
-        '''
+        
         self.embedding = Embeddings(
             word_vec_size=emsize,
             position_encoding=True,
@@ -446,7 +446,7 @@ class AE_BERT_enc(nn.Module):
         )
         '''
         self.embedding = BertEmbeddings(self.config)
-        
+        '''
         # Transformer Encoder and Decoder
         # nheads = 8
         # nff = 2048
@@ -545,12 +545,8 @@ class AE_BERT_enc(nn.Module):
         #   lengths_tensor = torch.LongTensor(lengths)
         # lengths_tensor[:] = max(lengths_tensor)
         #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
-        src = self.embedding(src,soft=soft)
-        max_len = src.shape[0] ## added by shizhe
-        batch_size = src.shape[1]
-        # print(max_len)
-        src = src.transpose(0, 1).contiguous()
-        memory_bank = self.encoder(src)
+        src = self.embedding(src)
+        memory_bank = self.encoder(src)[0]
         print("Successfully attained latent output from encoder")
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
