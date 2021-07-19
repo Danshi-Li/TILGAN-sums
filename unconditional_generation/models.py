@@ -9,7 +9,6 @@ from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
 from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
-from pytorch_transformers import BertForLatentConnector
 from bert.encoder import BertEncoder, BertEmbeddings
 
 class MLP_D(nn.Module):
@@ -438,12 +437,15 @@ class AE_BERT_enc(nn.Module):
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         
         # Transformer embedding
+        '''
         self.embedding = Embeddings(
             word_vec_size=emsize,
             position_encoding=True,
             word_padding_idx=0,
             word_vocab_size=ntokens,
         )
+        '''
+        self.embedding = BertEmbeddings(self.config)
         
         # Transformer Encoder and Decoder
         # nheads = 8
@@ -458,7 +460,7 @@ class AE_BERT_enc(nn.Module):
         alignmentlayer=0
         alignmentheads=0
 
-        self.encoder = BertForLatentConnector(self.config)
+        self.encoder = BertEncoder(self.config)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 
