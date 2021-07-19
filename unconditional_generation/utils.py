@@ -133,18 +133,16 @@ class Corpus(object):
         dropped = 0
         with open(path, 'r') as f:
             linecount = 0
+            dropped = 0
             lines = []
             for line in f:
                 linecount += 1
-                if self.lowercase:
-                    words = line[:-1].lower().strip().split(" ")
-                else:
-                    words = line[:-1].strip().split(" ")
-                if len(words) > self.maxlen:
+                if len(line.split()) < 1:
                     dropped += 1
                     continue
-                words = ['<sos>'] + words
-                words += ['<eos>']
+                if len(line.split()) > self.maxlen:
+                    dropped += 1
+                    continue
                 # vectorize
                 indices = self.bertTokenizer.convert_tokens_to_ids(self.bertTokenizer.tokenize(words))
                 lines.append(indices)
