@@ -9,6 +9,7 @@ from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
 from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
+from pytorch_transformers import BertForLatentConnector
 from bert.encoder import BertEncoder, BertEmbeddings
 
 class MLP_D(nn.Module):
@@ -435,7 +436,6 @@ class AE_BERT_enc(nn.Module):
         self.gpu = gpu
 
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
-        self.config = BertConfig(num_hidden_layers=nlayers, hidden_size=nhidden, num_attention_heads=nheads, attention_probs_dropout_prob=dropout, hidden_dropout_prob=dropout, max_position_embeddings=emsize)
         
         # Transformer embedding
         self.embedding = Embeddings(
@@ -458,7 +458,7 @@ class AE_BERT_enc(nn.Module):
         alignmentlayer=0
         alignmentheads=0
 
-        self.encoder = BertEncoder(self.config)
+        self.encoder = BertForLatentConnector(self.config)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 
@@ -524,7 +524,7 @@ class AE_BERT_enc(nn.Module):
         """
         batchsize = indices.shape[0]  #64
         max_len = indices.shape[1] #16
-        # src = self.embedding(indices)
+        #src = self.embedding(indices)
         # src = pack_padded_sequence(input=embeddings,lengths=lengths,batch_first=True)
         src = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
         # tgt = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
@@ -548,7 +548,7 @@ class AE_BERT_enc(nn.Module):
         batch_size = src.shape[1]
         # print(max_len)
         src = src.transpose(0, 1).contiguous()
-        memory_bank = self.encoder(src)[0]
+        memory_bank = self.encoder(src)
         print("Successfully attained latent output from encoder")
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
