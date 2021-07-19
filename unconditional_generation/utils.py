@@ -5,6 +5,7 @@ import random
 import shutil
 import json
 import math
+from transformers import BertTokenizer
 
 
 def load_kenlm():
@@ -80,6 +81,10 @@ class Corpus(object):
         self.train = self.tokenize(self.train_path)
         self.test = self.tokenize(self.test_path)
 
+        self.bertTokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        self.train_bert = self.tokenize_bert(self.train_path)
+        self.test_bert = self.tokenize_bert(self.test_path)
+
     def make_vocab(self):
         assert os.path.exists(self.train_path)
         # Add words to the dictionary
@@ -117,6 +122,31 @@ class Corpus(object):
                 vocab = self.dictionary.word2idx
                 unk_idx = vocab['<oov>']
                 indices = [vocab[w] if w in vocab else unk_idx for w in words]
+                lines.append(indices)
+
+        print("Number of sentences dropped from {}: {} out of {} total".
+              format(path, dropped, linecount))
+        return lines
+
+    def tokenize_bert(self, path):
+        """Tokenizes a text file."""
+        dropped = 0
+        with open(path, 'r') as f:
+            linecount = 0
+            lines = []
+            for line in f:
+                linecount += 1
+                if self.lowercase:
+                    words = line[:-1].lower().strip().split(" ")
+                else:
+                    words = line[:-1].strip().split(" ")
+                if len(words) > self.maxlen:
+                    dropped += 1
+                    continue
+                words = ['<sos>'] + words
+                words += ['<eos>']
+                # vectorize
+                indices = self.bertTokenizer.convert_tokens_to_ids(self.bertTokenizer.tokenize(words))
                 lines.append(indices)
 
         print("Number of sentences dropped from {}: {} out of {} total".
