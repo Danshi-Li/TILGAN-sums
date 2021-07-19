@@ -191,8 +191,8 @@ logging(str(vars(args)))
 
 eval_batch_size = args.eval_batch_size
 noise_seq_length = args.noise_seq_length
-test_data = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)
-train_data = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
+test_data = batchify(corpus.test_bert, eval_batch_size, args.maxlen, shuffle=False)
+train_data = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
 
 print("Loaded data!")
 
@@ -559,7 +559,7 @@ def train_gan_d_into_ae(batch):
 
 def train():
     logging("Training")
-    train_data = batchify(corpus.train, args.batch_size, args.maxlen, shuffle=True)
+    train_data = batchify(corpus.train_bert, args.batch_size, args.maxlen, shuffle=True)
 
     # gan: preparation
     if args.niters_gan_schedule != "":

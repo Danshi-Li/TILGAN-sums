@@ -545,7 +545,10 @@ class AE_BERT_enc(nn.Module):
         #   lengths_tensor = torch.LongTensor(lengths)
         # lengths_tensor[:] = max(lengths_tensor)
         #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
+
+        '''
         src = self.embedding(src)
+        '''
         memory_bank = self.encoder(src)[0]
         print("Successfully attained latent output from encoder")
         if encode_only:
