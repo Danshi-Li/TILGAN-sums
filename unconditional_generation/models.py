@@ -437,15 +437,15 @@ class AE_BERT_enc(nn.Module):
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         
         # Transformer embedding
-        '''
-        self.embedding = Embeddings(
+        self.enc_embedding = BertEmbeddings(self.config)
+        
+        self.dec_embedding = Embeddings(
             word_vec_size=emsize,
             position_encoding=True,
             word_padding_idx=0,
             word_vocab_size=ntokens,
         )
-        '''
-        self.embedding = BertEmbeddings(self.config)
+        
         
         # Transformer Encoder and Decoder
         # nheads = 8
@@ -462,7 +462,7 @@ class AE_BERT_enc(nn.Module):
 
         self.encoder = BertEncoder(self.config)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
-        self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
+        self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.dec_embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 
         # Initialize Linear Transformation
         self.linear = nn.Linear(nhidden, ntokens)
@@ -531,8 +531,8 @@ class AE_BERT_enc(nn.Module):
         src = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
         # tgt = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
         tgt = target.view(batchsize, max_len).transpose(0,1)
-        # src = src.unsqueeze(2)
-        # tgt = tgt.unsqueeze(2)
+        if soft==False:
+            tgt=tgt.unsqueeze(2)
         # dec_in = tgt[:-1]  # exclude last target from inputs
         if lengths == None:
             lengths_tensor = torch.LongTensor(batchsize)
@@ -543,7 +543,7 @@ class AE_BERT_enc(nn.Module):
         # lengths_tensor[:] = max(lengths_tensor)
         #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
         
-        src = self.embedding(src)
+        src = self.enc_embedding(src)
         
         memory_bank = self.encoder(src)[0]
         print("Successfully attained latent output from encoder")
