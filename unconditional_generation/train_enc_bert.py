@@ -288,9 +288,11 @@ def evaluate_autoencoder(data_source, epoch):
     all_accuracies = 0
     bcnt = 0
     for i, batch in enumerate(data_source):
-        source, target, lengths = batch
+        source_enc, lengths = batch[0]
+        source_dec, target, _ = batch[1]
         with torch.no_grad():
-            source = Variable(source.to(device))
+            source_enc = Variable(source_enc.to(device))
+            source_dec = Variable(source_dec.to(device))
             target = Variable(target.to(device))
             mask = target.gt(0)
             masked_target = target.masked_select(mask)
@@ -298,7 +300,7 @@ def evaluate_autoencoder(data_source, epoch):
             output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
 
             # output: batch x seq_len x ntokens
-            output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False)
+            output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
             flattened_output = output.view(-1, ntokens)
 
             masked_output = \
@@ -363,7 +365,8 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
 
     source_enc, _, lengths = batch[0]
     source_dec, target, _ = batch[1]
-    source = Variable(source.to(device))
+    source_enc = Variable(source_enc.to(device))
+    source_dec = Variable(source_dec.to(device))
     target = Variable(target.to(device))
     output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
     mask = target.gt(0)
@@ -491,11 +494,12 @@ def train_gan_d(batch, gan_type='kl'):
     optimizer_gan_d_local.zero_grad()
 
     # + samples
-    source, _, lengths = batch[0]
-    _, target, _ = batch[1]
-    source = Variable(source.to(device))
+    source_enc, _, lengths = batch[0]
+    source_dec, target, _ = batch[1]
+    source_enc = Variable(source_enc.to(device))
+    source_dec = Variable(source_dec.to(device))
     target = Variable(target.to(device))
-    real_hidden = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False, encode_only=True)
+    real_hidden = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False, encode_only=True)
     real_score = gan_disc(real_hidden.detach())
 
     idx = random.randint(0, args.maxlen - args.gan_d_local_windowsize)
