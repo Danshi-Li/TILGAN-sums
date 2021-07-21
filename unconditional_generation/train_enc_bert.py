@@ -604,10 +604,12 @@ def train():
             # train gan
             for k in range(niter_gan):
                 for i in range(args.niters_gan_d):
+                    rnd_niters_gan_d = random.randint(0, len(train_data[0])-1)
                     errD, errD_real, errD_fake = train_gan_d(
-                            train_data[:][random.randint(0, len(train_data[0])-1)], args.gan_type)
+                            [train_data[0][rnd_niters_gan_d],train_data[0][rnd_niters_gan_d]], args.gan_type)
                 for i in range(args.niters_gan_ae):
-                    train_gan_d_into_ae(train_data[:][random.randint(0, len(train_data[0])-1)])
+                    rnd_niters_gan_ae = random.randint(0, len(train_data[0])-1)
+                    train_gan_d_into_ae([train_data[0][rnd_niters_gan_ae],train_data[1][rnd_niters_gan_ae]])
                 for i in range(args.niters_gan_g):
                     errG = train_gan_g(args.gan_type)
                 if args.enhance_dec:
