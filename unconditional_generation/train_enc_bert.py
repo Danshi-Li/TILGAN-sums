@@ -598,7 +598,7 @@ def train():
             for i in range(args.niters_ae):
                 if niter >= len(train_data[0]):
                     break  # end of epoch
-                total_loss_ae, start_time = train_ae(epoch, train_data[:][niter],
+                total_loss_ae, start_time = train_ae(epoch, [train_data[0][niter],train_data[1][niter]],
                                 total_loss_ae, start_time, niter)
                 niter += 1
             # train gan
