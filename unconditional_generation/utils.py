@@ -172,7 +172,6 @@ def batchify(data, bsz, max_len, shuffle=False, gpu=False):
         source = [x[:-1] for x in batch]
         # target has no start symbol
         target = [x[1:] for x in batch]
-        
 
         for x, y in zip(source, target):
             zeros = (maxlen-len(x))*[0]

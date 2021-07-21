@@ -139,7 +139,7 @@ class TransformerDecoderLayer(nn.Module):
 
         if step is None:
             tgt_len = tgt_pad_mask.size(-1)
-            if not future:  # apply future_mask, result mask in (B, T, T)
+            if not future:  # apply future_mask, result mask in (B, T, T)a
                 future_mask = torch.ones(
                     [tgt_len, tgt_len],
                     device=tgt_pad_mask.device,
@@ -153,7 +153,7 @@ class TransformerDecoderLayer(nn.Module):
                 dec_mask = torch.gt(tgt_pad_mask + future_mask, 0)
             else:  # only mask padding, result mask in (B, 1, T)
                 dec_mask = tgt_pad_mask
-
+                print(dec_mask)
         input_norm = self.layer_norm_1(inputs)
 
         if isinstance(self.self_attn, MultiHeadedAttention):
@@ -166,7 +166,7 @@ class TransformerDecoderLayer(nn.Module):
                                       layer_cache=layer_cache, step=step)
 
         query = self.drop(query) + inputs
-
+        print("memory_bank dims:{}\nquery dims:{}\nmask dims:{}".format(memory_bank.shape, query.shape, src_pad_mask.shape))
         query_norm = self.layer_norm_2(query)
         mid, attns = self.context_attn(memory_bank, memory_bank, query_norm,
                                        mask=src_pad_mask,
@@ -296,25 +296,20 @@ class TransformerDecoder(DecoderBase):
         """Decode, possibly stepwise."""
         if step == 0:
             self._init_cache(memory_bank)
-
         tgt_words = tgt[:, :, 0].transpose(0, 1)  #tgt_words [64,16]
         # tgt_words = tgt[:, :].transpose(0, 1)
-
-        emb = self.embeddings(tgt, step=step)     #tgt: [16,64,1]
+        emb = self.embeddings(tgt,step=step)     #tgt: [16,64,1]
         assert emb.dim() == 3  # len x batch x embedding_dim
-
         output = emb.transpose(0, 1).contiguous()  #[64,16,512]
         src_memory_bank = memory_bank.transpose(0, 1).contiguous()  #[64,16,512]
-
         pad_idx = self.embeddings.word_padding_idx #0
         src_lens = kwargs["memory_lengths"]
         src_max_len = self.state["src"].shape[0]
         src_pad_mask = ~sequence_mask(src_lens, src_max_len).unsqueeze(1)
-        tgt_pad_mask = tgt_words.data.eq(pad_idx).unsqueeze(1)  # [B, 1, T_tgt]  [64,1,16]
-
+        tgt_pad_mask = tgt_words.data.eq(pad_idx)  # [B, 1, T_tgt]  [64,1,16]a
+        tgt_pad_mask = tgt_pad_mask.unsqueeze(1)
         with_align = kwargs.pop('with_align', False)
         attn_aligns = []
-
         for i, layer in enumerate(self.transformer_layers):
             # layer_cache = self.state["cache"]["layer_{}".format(i)] \
             #     if step is not None else None

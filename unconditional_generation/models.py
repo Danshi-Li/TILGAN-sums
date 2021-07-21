@@ -446,7 +446,6 @@ class AE_BERT_enc(nn.Module):
             word_vocab_size=ntokens,
         )
         
-        
         # Transformer Encoder and Decoder
         # nheads = 8
         # nff = 2048
@@ -531,8 +530,10 @@ class AE_BERT_enc(nn.Module):
         src = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
         # tgt = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
         tgt = target.view(batchsize, max_len).transpose(0,1)
+        
         if soft==False:
             tgt=tgt.unsqueeze(2)
+        
         # dec_in = tgt[:-1]  # exclude last target from inputs
         if lengths == None:
             lengths_tensor = torch.LongTensor(batchsize)
@@ -554,7 +555,7 @@ class AE_BERT_enc(nn.Module):
         if bptt is False:
             self.decoder.init_state(src, memory_bank, None)
         memory_bank = self.unsqueeze_hidden(memory_bank)
-        print(lengths_tensor)
+        
         dec_out, attns = self.decoder(tgt, memory_bank,
                                       memory_lengths=lengths_tensor,
                                       with_align=False)

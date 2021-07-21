@@ -178,7 +178,7 @@ print("Vocabulary Size: {}".format(ntokens))
 args.ntokens = ntokens
 
 # exp dir
-create_exp_dir(os.path.join(args.save), ['train.py', 'models.py', 'utils.py'],
+create_exp_dir(os.path.join(args.save), ['train_enc_bert.py', 'models.py', 'utils.py'],
         dict=corpus.dictionary.word2idx, options=args)
 
 def logging(str, to_stdout=True):
