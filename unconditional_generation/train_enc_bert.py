@@ -361,11 +361,11 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     autoencoder.train()
     optimizer_ae.zero_grad()
 
-    source, _, lengths = batch[0]
-    _, target, _ = batch[1]
+    source_enc, _, lengths = batch[0]
+    source_dec, target, _ = batch[1]
     source = Variable(source.to(device))
     target = Variable(target.to(device))
-    output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False)
+    output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
     mask = target.gt(0)
     masked_target = target.masked_select(mask)
     output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
@@ -541,11 +541,11 @@ def train_gan_d_into_ae(batch):
     autoencoder.train()
     optimizer_gan_e.zero_grad()
 
-    source, _, lengths = batch[0]
-    _, target, _ = batch[1]
+    source_enc, _, lengths = batch[0]
+    source_dec, target, _ = batch[1]
     source = Variable(source.to(device))
     target = Variable(target.to(device))
-    real_hidden = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False, encode_only=True)
+    real_hidden = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False, encode_only=True)
 
     if args.gan_d_local:
         idx = random.randint(0, args.maxlen - args.gan_d_local_windowsize)
