@@ -547,7 +547,8 @@ def train_gan_d_into_ae(batch):
 
     source_enc, _, lengths = batch[0]
     source_dec, target, _ = batch[1]
-    source = Variable(source.to(device))
+    source_enc = Variable(source_enc.to(device))
+    source_dec = Variable(source_dec.to(device))
     target = Variable(target.to(device))
     real_hidden = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False, encode_only=True)
 
