@@ -191,8 +191,12 @@ logging(str(vars(args)))
 
 eval_batch_size = args.eval_batch_size
 noise_seq_length = args.noise_seq_length
-test_data = batchify(corpus.test_bert, eval_batch_size, args.maxlen, shuffle=False)
-train_data = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
+test_data_enc = batchify(corpus.test_bert, eval_batch_size, args.maxlen, shuffle=False)
+train_data_enc = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
+test_data_dec = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)
+train_data_dec = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
+train_data = [train_data_enc, train_data_dec]
+test_data = [test_data_enc, test_data_enc]
 
 print("Loaded data!")
 
@@ -357,7 +361,8 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     autoencoder.train()
     optimizer_ae.zero_grad()
 
-    source, target, lengths = batch
+    source, _, lengths = batch[0]
+    _, target, _ = batch[1]
     source = Variable(source.to(device))
     target = Variable(target.to(device))
     output = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False)
@@ -381,7 +386,7 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
         elapsed = time.time() - start_time
         logging('| epoch {:3d} | {:5d}/{:5d} batches | lr {:08.6f} | ms/batch {:5.2f} | '
                 'loss {:5.2f} | ppl {:8.2f} | acc {:8.2f} | train_ae_norm {:8.2f}'.format(
-                epoch, i, len(train_data), 0,
+                epoch, i, len(train_data[0]), 0,
                 elapsed * 1000 / args.log_interval,
                 cur_loss, math.exp(cur_loss), accuracy, train_ae_norm))
 
@@ -486,7 +491,8 @@ def train_gan_d(batch, gan_type='kl'):
     optimizer_gan_d_local.zero_grad()
 
     # + samples
-    source, target, lengths = batch
+    source, _, lengths = batch[0]
+    _, target, _ = batch[1]
     source = Variable(source.to(device))
     target = Variable(target.to(device))
     real_hidden = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False, encode_only=True)
@@ -535,7 +541,8 @@ def train_gan_d_into_ae(batch):
     autoencoder.train()
     optimizer_gan_e.zero_grad()
 
-    source, target, lengths = batch
+    source, _, lengths = batch[0]
+    _, target, _ = batch[1]
     source = Variable(source.to(device))
     target = Variable(target.to(device))
     real_hidden = autoencoder(source, lengths, source, add_noise=args.add_noise, soft=False, encode_only=True)
@@ -558,7 +565,9 @@ def train_gan_d_into_ae(batch):
 
 def train():
     logging("Training")
-    train_data = batchify(corpus.train_bert, args.batch_size, args.maxlen, shuffle=True)
+    train_data_enc = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
+    train_data_dec = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
+    train_data = [train_data_enc, train_data_dec]
 
     # gan: preparation
     if args.niters_gan_schedule != "":
@@ -580,21 +589,21 @@ def train():
         niter = 0
         niter_g = 1
 
-        while niter < len(train_data):
+        while niter < len(train_data[0]):
             # train ae
             for i in range(args.niters_ae):
-                if niter >= len(train_data):
+                if niter >= len(train_data[0]):
                     break  # end of epoch
-                total_loss_ae, start_time = train_ae(epoch, train_data[niter],
+                total_loss_ae, start_time = train_ae(epoch, train_data[:][niter],
                                 total_loss_ae, start_time, niter)
                 niter += 1
             # train gan
             for k in range(niter_gan):
                 for i in range(args.niters_gan_d):
                     errD, errD_real, errD_fake = train_gan_d(
-                            train_data[random.randint(0, len(train_data)-1)], args.gan_type)
+                            train_data[:][random.randint(0, len(train_data[0])-1)], args.gan_type)
                 for i in range(args.niters_gan_ae):
-                    train_gan_d_into_ae(train_data[random.randint(0, len(train_data)-1)])
+                    train_gan_d_into_ae(train_data[:][random.randint(0, len(train_data[0])-1)])
                 for i in range(args.niters_gan_g):
                     errG = train_gan_g(args.gan_type)
                 if args.enhance_dec:
@@ -607,7 +616,7 @@ def train():
             if niter_g % 200 == 0:
                 logging('[{}/{}][{}/{}] Loss_D: {:.8f} (Loss_D_real: {:.8f} '
                         'Loss_D_fake: {:.8f}) Loss_G: {:.8f} Loss_Enh_Dec: {:.8f}'.format(
-                         epoch, args.epochs, niter, len(train_data),
+                         epoch, args.epochs, niter, len(train_data[0]),
                          errD.data.item(), errD_real.data.item(),
                          errD_fake.data.item(), errG.data.item(), errG_enh_dec.data.item()))
         # eval
