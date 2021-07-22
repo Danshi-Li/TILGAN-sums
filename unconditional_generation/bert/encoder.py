@@ -56,6 +56,8 @@ from transformers.modeling_utils import (
 )
 from transformers.utils import logging
 
+from ../onmt.modules.util_class import Elementwise
+
 
 logger = logging.get_logger(__name__)
 
@@ -195,21 +197,7 @@ class BertEmbeddings(nn.Module):
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
 
         if inputs_embeds is None:
-            for i, module in enumerate(self.word_embeddings._modules.values()):
-                if i == len(self.make_embedding._modules.values()) - 1:
-                    input_ids = module(input_ids, step=step)
-                else:
-                    # source = module(source)
-                    if soft==False:  #输入是onehot
-                        input_ids = module(source)
-                    elif soft==True: #输入是distribution
-                        # print("enter============")
-                        # print("module: ", module)
-                        # print("grad: ", module[0].weight.grad)
-                        # print("module[0].weight: ", module[0].weight)
-                        input_ids = torch.matmul(input_ids, module[0].weight)
-            input_embeds = input_ids
-            #inputs_embeds = self.word_embeddings(input_ids)
+            inputs_embeds = self.word_embeddings(input_ids)
         position_embeddings = self.position_embeddings(position_ids)
         token_type_embeddings = self.token_type_embeddings(token_type_ids)
         #print(inputs_embeds.shape)
