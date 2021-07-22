@@ -438,7 +438,7 @@ def train_gan_dec(gan_type='kl'):
     # 1. decoder  - soft distribution
     enhance_source, max_indices= autoencoder.generate_enh_dec(fake_hidden, args.maxlen, sample=args.sample)
     # 2. soft distribution - > encoder  -> fake_hidden
-    enhance_hidden = autoencoder(enhance_source[:,:,0].long(), None, max_indices, add_noise=args.add_noise, soft=True, encode_only=True)
+    enhance_hidden = autoencoder(enhance_source.long(), None, max_indices, add_noise=args.add_noise, soft=True, encode_only=True)
     fake_score = gan_disc(enhance_hidden)
 
     if args.gan_d_local:

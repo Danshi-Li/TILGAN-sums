@@ -287,9 +287,9 @@ def evaluate_autoencoder(data_source, epoch):
     ntokens = len(corpus.dictionary.word2idx)
     all_accuracies = 0
     bcnt = 0
-    for i, batch in enumerate(data_source[0]):
-        source_enc, _, lengths = batch
-        source_dec, target, _ = data_source[1][i]
+    for i, batch in enumerate(data_source):
+        source_enc, _, lengths = batch[0]
+        source_dec, target, _ = batch[1]
         with torch.no_grad():
             source_enc = Variable(source_enc.to(device))
             source_dec = Variable(source_dec.to(device))

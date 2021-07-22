@@ -196,7 +196,7 @@ train_data_enc = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuf
 test_data_dec = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)
 train_data_dec = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
 train_data = [train_data_enc, train_data_dec]
-test_data = [test_data_enc, test_data_dec]
+test_data = [test_data_enc, test_data_enc]
 
 print("Loaded data!")
 
@@ -287,9 +287,9 @@ def evaluate_autoencoder(data_source, epoch):
     ntokens = len(corpus.dictionary.word2idx)
     all_accuracies = 0
     bcnt = 0
-    for i, batch in enumerate(data_source[0]):
-        source_enc, _, lengths = batch
-        source_dec, target, _ = data_source[1][i]
+    for i, batch in enumerate(data_source):
+        source_enc, _, lengths = batch[0]
+        source_dec, target, _ = batch[1]
         with torch.no_grad():
             source_enc = Variable(source_enc.to(device))
             source_dec = Variable(source_dec.to(device))

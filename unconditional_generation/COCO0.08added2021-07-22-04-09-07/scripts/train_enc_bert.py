@@ -287,9 +287,9 @@ def evaluate_autoencoder(data_source, epoch):
     ntokens = len(corpus.dictionary.word2idx)
     all_accuracies = 0
     bcnt = 0
-    for i, batch in enumerate(data_source[0]):
-        source_enc, _, lengths = batch
-        source_dec, target, _ = data_source[1][i]
+    for i, batch in enumerate(data_source):
+        source_enc, _, lengths = batch[0]
+        source_dec, target, _ = batch[1]
         with torch.no_grad():
             source_enc = Variable(source_enc.to(device))
             source_dec = Variable(source_dec.to(device))
@@ -438,25 +438,28 @@ def train_gan_dec(gan_type='kl'):
     # 1. decoder  - soft distribution
     enhance_source, max_indices= autoencoder.generate_enh_dec(fake_hidden, args.maxlen, sample=args.sample)
     # 2. soft distribution - > encoder  -> fake_hidden
-    enhance_hidden = autoencoder(enhance_source[:,:,0].long(), None, max_indices, add_noise=args.add_noise, soft=True, encode_only=True)
-    fake_score = gan_disc(enhance_hidden)
+    errG = torch.Tensor([0]).to(device)
+    for i in range(enhance_source.shape[2]):
+        enhance_source_sentence = enhance_source[:,:,i].long()
+        enhance_hidden = autoencoder(enhance_source_sentence, None, max_indices, add_noise=args.add_noise, soft=True, encode_only=True)
+        fake_score = gan_disc(enhance_hidden)
 
-    if args.gan_d_local:
-        idx = random.randint(0, args.maxlen - args.gan_d_local_windowsize)
-        fake_hidden_local = fake_hidden[:, idx * args.aehidden : (idx + args.gan_d_local_windowsize) * args.aehidden]
-        fake_score_local = gan_disc_local(fake_hidden_local)
+        if args.gan_d_local:
+            idx = random.randint(0, args.maxlen - args.gan_d_local_windowsize)
+            fake_hidden_local = fake_hidden[:, idx * args.aehidden : (idx + args.gan_d_local_windowsize) * args.aehidden]
+            fake_score_local = gan_disc_local(fake_hidden_local)
 
-        if gan_type == 'kl':
-            errG = -(torch.exp(fake_score.detach()).clamp(0.5, 2) * fake_score).mean() -(torch.exp(fake_score_local.detach()).clamp(0.5, 2) * fake_score_local).mean()
-        else:  # all or wgan
-            errG = -fake_score.mean() -fake_score_local.mean()
-    else:
-        if gan_type == 'kl':
-            errG = -(torch.exp(fake_score.detach()).clamp(0.5, 2) * fake_score).mean()
-        else: # all or wgan
-            errG = -fake_score.mean()
+            if gan_type == 'kl':
+                errG -= (torch.exp(fake_score.detach()).clamp(0.5, 2) * fake_score).mean() -(torch.exp(fake_score_local.detach()).clamp(0.5, 2) * fake_score_local).mean()
+            else:  # all or wgan
+                errG -= fake_score.mean() -fake_score_local.mean()
+        else:
+            if gan_type == 'kl':
+                errG -= (torch.exp(fake_score.detach()).clamp(0.5, 2) * fake_score).mean()
+            else: # all or wgan
+                errG -= fake_score.mean()
 
-
+    errG /= enhance_source.shape[3]
     errG *= args.gan_lambda
     errG.backward()
     optimizer_gan_dec.step()
