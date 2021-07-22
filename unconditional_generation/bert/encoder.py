@@ -197,7 +197,10 @@ class BertEmbeddings(nn.Module):
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
 
         if inputs_embeds is None:
-            inputs_embeds = self.word_embeddings(input_ids)
+            if soft == False:
+                inputs_embeds = self.word_embeddings(input_ids)
+            elif soft == True:
+                imput_embeds = torch.matmul(input_ids, self.word_embeddings.weight)
         position_embeddings = self.position_embeddings(position_ids)
         token_type_embeddings = self.token_type_embeddings(token_type_ids)
         #print(inputs_embeds.shape)
