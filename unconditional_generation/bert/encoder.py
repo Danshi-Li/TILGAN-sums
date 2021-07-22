@@ -180,7 +180,7 @@ class BertEmbeddings(nn.Module):
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
 
-    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None):
+    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False):
         if input_ids is not None:
             input_shape = input_ids.size()
         else:
@@ -195,7 +195,21 @@ class BertEmbeddings(nn.Module):
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
 
         if inputs_embeds is None:
-            inputs_embeds = self.word_embeddings(input_ids)
+            for i, module in enumerate(self.word_embeddings._modules.values()):
+                if i == len(self.make_embedding._modules.values()) - 1:
+                    input_ids = module(input_ids, step=step)
+                else:
+                    # source = module(source)
+                    if soft==False:  #输入是onehot
+                        input_ids = module(source)
+                    elif soft==True: #输入是distribution
+                        # print("enter============")
+                        # print("module: ", module)
+                        # print("grad: ", module[0].weight.grad)
+                        # print("module[0].weight: ", module[0].weight)
+                        input_ids = torch.matmul(input_ids, module[0].weight)
+            input_embeds = input_ids
+            #inputs_embeds = self.word_embeddings(input_ids)
         position_embeddings = self.position_embeddings(position_ids)
         token_type_embeddings = self.token_type_embeddings(token_type_ids)
         #print(inputs_embeds.shape)
