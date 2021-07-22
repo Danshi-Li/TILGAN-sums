@@ -288,7 +288,7 @@ def evaluate_autoencoder(data_source, epoch):
     all_accuracies = 0
     bcnt = 0
     for i, batch in enumerate(data_source):
-        source_enc, lengths = batch[0]
+        source_enc, lengths, _ = batch[0]
         source_dec, target, _ = batch[1]
         with torch.no_grad():
             source_enc = Variable(source_enc.to(device))
@@ -379,7 +379,6 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
     train_ae_norm = cal_norm(autoencoder)
     optimizer_ae.step()
-    print(masked_output.shape)
     total_loss_ae += loss.data.item()
     if i % args.log_interval == 0:
         probs = F.softmax(masked_output, dim=-1)
@@ -439,7 +438,7 @@ def train_gan_dec(gan_type='kl'):
     # 1. decoder  - soft distribution
     enhance_source, max_indices= autoencoder.generate_enh_dec(fake_hidden, args.maxlen, sample=args.sample)
     # 2. soft distribution - > encoder  -> fake_hidden
-    enhance_hidden = autoencoder(enhance_source, None, max_indices, add_noise=args.add_noise, soft=True, encode_only=True)
+    enhance_hidden = autoencoder(enhance_source[:,:,0].long(), None, max_indices, add_noise=args.add_noise, soft=True, encode_only=True)
     fake_score = gan_disc(enhance_hidden)
 
     if args.gan_d_local:

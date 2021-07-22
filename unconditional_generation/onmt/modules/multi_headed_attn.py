@@ -196,7 +196,6 @@ class MultiHeadedAttention(nn.Module):
 
         if mask is not None:
             # mask = mask.unsqueeze(1)  # [B, 1, 1, T_values]
-            print(key.device)
             mask = mask.unsqueeze(1)
             mask = mask.to(key.device)  # [B, 1, 1, T_values]
             scores = scores.masked_fill(mask, -1e18)

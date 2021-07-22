@@ -166,7 +166,6 @@ class TransformerDecoderLayer(nn.Module):
                                       layer_cache=layer_cache, step=step)
 
         query = self.drop(query) + inputs
-        print("memory_bank dims:{}\nquery dims:{}\nmask dims:{}".format(memory_bank.shape, query.shape, src_pad_mask.shape))
         query_norm = self.layer_norm_2(query)
         mid, attns = self.context_attn(memory_bank, memory_bank, query_norm,
                                        mask=src_pad_mask,
