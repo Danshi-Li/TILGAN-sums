@@ -181,7 +181,7 @@ class BertEmbeddings(nn.Module):
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
-        self.elementwise = Elementwise('concat', self.word_embeddings)
+        self.elementwise = Elementwise('concat', [self.word_embeddings])
 
     def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False):
         if input_ids is not None:
@@ -201,6 +201,8 @@ class BertEmbeddings(nn.Module):
             if soft == False:
                 inputs_embeds = self.word_embeddings(input_ids)
             elif soft == True:
+                print(input_ids.shape)
+                print(self.elementwise[0].weight.shape)
                 imput_embeds = torch.matmul(input_ids, self.elementwise[0].weight)
         position_embeddings = self.position_embeddings(position_ids)
         token_type_embeddings = self.token_type_embeddings(token_type_ids)

@@ -433,7 +433,7 @@ class AE_BERT_enc(nn.Module):
         self.hidden_init = hidden_init
         self.dropout = dropout
         self.gpu = gpu
-        self.config = BertConfig(num_hidden_layers=nlayers, hidden_size=aehidden, num_attention_heads=nheads, attention_probs_dropout_prob=dropout, hidden_dropout_prob=dropout, max_position_embeddings=emsize)
+        self.config = BertConfig(vocab_size=13548,num_hidden_layers=nlayers, hidden_size=nhidden, num_attention_heads=nheads, attention_probs_dropout_prob=dropout, hidden_dropout_prob=dropout, max_position_embeddings=emsize)
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         
         # Transformer embedding
