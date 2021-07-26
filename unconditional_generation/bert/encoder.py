@@ -167,7 +167,7 @@ def load_tf_weights_in_bert(model, config, tf_checkpoint_path):
 class BertEmbeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings."""
 
-    def __init__(self, config):
+    def __init__(self, config, word_vec_size, word_vocab_size, word_padding_idx, position_encoding=False):
         super().__init__()
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
 

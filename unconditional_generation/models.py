@@ -437,7 +437,7 @@ class AE_BERT_enc(nn.Module):
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         
         # Transformer embedding
-        self.enc_embedding = BertEmbeddings(self.config)
+        self.enc_embedding = BertEmbeddings(self.config,  word_vec_size=emsize,position_encoding=True,word_padding_idx=0, word_vocab_size=ntokens,)
         
         self.dec_embedding = Embeddings(
             word_vec_size=emsize,
