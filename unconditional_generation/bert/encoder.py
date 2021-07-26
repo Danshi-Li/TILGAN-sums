@@ -29,6 +29,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from transformers.activations import ACT2FN
 from transformers import BertConfig
+from onmt.modules.util_class import Elementwise
 
 from transformers.file_utils import (
     ModelOutput,
@@ -168,19 +169,36 @@ class BertEmbeddings(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
-        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
 
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
         # any TensorFlow checkpoint file
+        #self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
+        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+        self.make_embedding = nn.Sequential()
+
+        self.word_padding_idx = word_padding_idx
+
+        self.word_vec_size = word_vec_size
+
+        # Dimensions and padding for constructing the word embedding matrix
+        vocab_sizes = [word_vocab_size]
+        emb_dims = [word_vec_size]
+        pad_indices = [word_padding_idx]
+
+        emb_params = zip(vocab_sizes, emb_dims, pad_indices)
+        embeddings = [nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse)
+                      for vocab, dim, pad in emb_params]
+        emb_luts = Elementwise(feat_merge, embeddings)
+        self.make_embedding.add_module('emb_luts', emb_luts)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
 
-    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None):
+    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False, step=None):
         if input_ids is not None:
             input_shape = input_ids.size()
         else:
@@ -194,8 +212,21 @@ class BertEmbeddings(nn.Module):
         if token_type_ids is None:
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
 
+
         if inputs_embeds is None:
-            inputs_embeds = self.word_embeddings(input_ids)
+            for i, module in enumerate(self.make_embedding._modules.values()):
+                if i == len(self.make_embedding._modules.values()) - 1:
+                    source = module(source, step=step)
+                else:
+                    # source = module(source)
+                    if soft==False:  #输入是onehot
+                        source = module(source)
+                    elif soft==True: #输入是distribution
+                        # print("enter============")
+                        # print("module: ", module)
+                        # print("grad: ", module[0].weight.grad)
+                        # print("module[0].weight: ", module[0].weight)
+                        source = torch.matmul(source, module[0].weight)
         position_embeddings = self.position_embeddings(position_ids)
         token_type_embeddings = self.token_type_embeddings(token_type_ids)
         #print(inputs_embeds.shape)
