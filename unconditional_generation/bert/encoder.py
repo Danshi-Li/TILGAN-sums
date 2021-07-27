@@ -167,7 +167,7 @@ def load_tf_weights_in_bert(model, config, tf_checkpoint_path):
 class BertEmbeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings."""
 
-    def __init__(self, config, word_vec_size, word_vocab_size, word_padding_idx, position_encoding=False):
+    def __init__(self, config, word_vec_size, word_vocab_size, word_padding_idx, position_encoding=False, feat_padding_idx=[], feat_vocab_sizes=[], feat_vec_exponent=0.7, feat_vec_size=-1,):
         super().__init__()
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
 
@@ -187,18 +187,41 @@ class BertEmbeddings(nn.Module):
         # Dimensions and padding for constructing the word embedding matrix
         vocab_sizes = [word_vocab_size]
         emb_dims = [word_vec_size]
-        pad_indices = [word_padding_idx]
+        pad_indices = [word_padding_idx]        
 
+        # Dimensions and padding for feature embedding matrices
+        # (these have no effect if feat_vocab_sizes is empty)
+        if feat_merge == 'sum':
+            feat_dims = [word_vec_size] * len(feat_vocab_sizes)
+        elif feat_vec_size > 0:
+            feat_dims = [feat_vec_size] * len(feat_vocab_sizes)
+        else:
+            feat_dims = [int(vocab ** feat_vec_exponent)
+                         for vocab in feat_vocab_sizes]
+        vocab_sizes.extend(feat_vocab_sizes)
+        emb_dims.extend(feat_dims)
+        pad_indices.extend(feat_padding_idx)
+
+        # The embedding matrix look-up tables. The first look-up table
+        # is for words. Subsequent ones are for features, if any exist.
         emb_params = zip(vocab_sizes, emb_dims, pad_indices)
         embeddings = [nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse)
                       for vocab, dim, pad in emb_params]
+
         emb_luts = Elementwise(feat_merge, embeddings)
+
+        self.make_embedding = nn.Sequential()
         self.make_embedding.add_module('emb_luts', emb_luts)
+
+        self.embedding_size = (sum(emb_dims) if feat_merge == 'concat'
+                               else word_vec_size)
+        pe = PositionalEncoding(dropout, self.embedding_size)
+        self.make_embedding.add_module('pe', pe)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
 
-    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False, step=None):
+    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False, step=None,):
         if input_ids is not None:
             input_shape = input_ids.size()
         else:
@@ -227,12 +250,12 @@ class BertEmbeddings(nn.Module):
                         # print("grad: ", module[0].weight.grad)
                         # print("module[0].weight: ", module[0].weight)
                         source = torch.matmul(source, module[0].weight)
-        position_embeddings = self.position_embeddings(position_ids)
-        token_type_embeddings = self.token_type_embeddings(token_type_ids)
+        #position_embeddings = self.position_embeddings(position_ids)
+        #token_type_embeddings = self.token_type_embeddings(token_type_ids)
         #print(inputs_embeds.shape)
         #print(position_embeddings.shape)
-        embeddings = inputs_embeds + position_embeddings 
-        embeddings = embeddings + token_type_embeddings
+        #embeddings = inputs_embeds + position_embeddings 
+        #embeddings = embeddings + token_type_embeddings
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
         return embeddings
