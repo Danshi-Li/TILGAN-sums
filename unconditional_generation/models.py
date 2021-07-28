@@ -11,6 +11,9 @@ from torch.nn.init import xavier_uniform_
 from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
 from bert.encoder import BertEncoder, BertEmbeddings
 
+from gpt.tokenization_gpt2 import GPT2Tokenizer
+from gpt.modeling_gpt2 import GPT2ForLatentConnector
+
 class MLP_D(nn.Module):
     def __init__(self, ninput, noutput, layers,
                  activation=nn.LeakyReLU(0.2), gpu=True):
@@ -714,7 +717,7 @@ class AE_GPT_dec(nn.Module):
         self.dropout = dropout
         self.gpu = gpu
 
-        self.config = GPT2Config()
+        self.config = GPT2Config.from_pretrained("gpt2")
 
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         # Transformer Embedding
@@ -724,7 +727,7 @@ class AE_GPT_dec(nn.Module):
             word_padding_idx=0,
             word_vocab_size=ntokens,
         )
-        self.dec_embedding = None
+        self.dec_embedding = GPT2Tokenizer.from_pretrained("gpt2")
 
         # Transformer Encoder and Decoder
         # nheads = 8
@@ -740,7 +743,7 @@ class AE_GPT_dec(nn.Module):
         alignmentheads=0
         self.encoder = TransformerEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.enc_embedding, max_rela_posi, aehidden)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
-        self.decoder = GPT2Model()
+        self.decoder = GPT2ForLatentConnector.from_pretrained("gpt2")
 
         # Initialize Linear Transformation
         self.linear = nn.Linear(nhidden, ntokens)
@@ -831,9 +834,9 @@ class AE_GPT_dec(nn.Module):
         if bptt is False:
             self.decoder.init_state(src, memory_bank, enc_state)
         memory_bank = self.unsqueeze_hidden(memory_bank)
-        dec_out, attns = self.decoder(tgt, memory_bank,
-                                      memory_lengths=lengths_tensor,
-                                      with_align=False)
+
+        tgt = self.dec_embedding(tgt)
+        dec_out, attns = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt, with_align=False)
         dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
         # reshape to batch_size*maxlen x nhidden before linear over vocab
 
