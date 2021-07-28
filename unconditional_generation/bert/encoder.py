@@ -1,5 +1,4 @@
-# coding=utf-8
-# Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
+opyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
 # Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,8 +55,6 @@ from transformers.modeling_utils import (
     prune_linear_layer,
 )
 from transformers.utils import logging
-
-from onmt.modules.util_class import Elementwise
 
 
 logger = logging.get_logger(__name__)
@@ -222,13 +219,8 @@ class BertEmbeddings(nn.Module):
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
-        self.elementwise = Elementwise('concat', [self.word_embeddings])
 
-<<<<<<< HEAD
-    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False):
-=======
     def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False, step=None,):
->>>>>>> dev-encoder
         if input_ids is not None:
             input_shape = input_ids.size()
         else:
@@ -244,24 +236,14 @@ class BertEmbeddings(nn.Module):
 
 
         if inputs_embeds is None:
-<<<<<<< HEAD
-            if soft == False:
-                inputs_embeds = self.word_embeddings(input_ids)
-            elif soft == True:
-                print(input_ids.shape)
-                print(self.elementwise[0].weight.shape)
-                imput_embeds = torch.matmul(input_ids, self.elementwise[0].weight)
-        position_embeddings = self.position_embeddings(position_ids)
-        token_type_embeddings = self.token_type_embeddings(token_type_ids)
-=======
             for i, module in enumerate(self.make_embedding._modules.values()):
                 if i == len(self.make_embedding._modules.values()) - 1:
                     source = module(source, step=step)
                 else:
                     # source = module(source)
-                    if soft==False:  #输入是onehot
+                    if soft==False:  #脢盲脠毛脢脟onehot
                         source = module(source)
-                    elif soft==True: #输入是distribution
+                    elif soft==True: #脢盲脠毛脢脟distribution
                         # print("enter============")
                         # print("module: ", module)
                         # print("grad: ", module[0].weight.grad)
@@ -269,7 +251,6 @@ class BertEmbeddings(nn.Module):
                         source = torch.matmul(source, module[0].weight)
         #position_embeddings = self.position_embeddings(position_ids)
         #token_type_embeddings = self.token_type_embeddings(token_type_ids)
->>>>>>> dev-encoder
         #print(inputs_embeds.shape)
         #print(position_embeddings.shape)
         #embeddings = inputs_embeds + position_embeddings 
@@ -593,5 +574,4 @@ class BertPooler(nn.Module):
         pooled_output = self.dense(first_token_tensor)
         pooled_output = self.activation(pooled_output)
         return pooled_output
-
 
