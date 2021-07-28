@@ -29,6 +29,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 
 from transformers.activations import ACT2FN
 from transformers import BertConfig
+from onmt.modules.util_class import Elementwise
 
 from transformers.file_utils import (
     ModelOutput,
@@ -55,8 +56,6 @@ from transformers.modeling_utils import (
     prune_linear_layer,
 )
 from transformers.utils import logging
-
-from onmt.modules.util_class import Elementwise
 
 
 logger = logging.get_logger(__name__)
@@ -168,22 +167,61 @@ def load_tf_weights_in_bert(model, config, tf_checkpoint_path):
 class BertEmbeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings."""
 
-    def __init__(self, config):
+    def __init__(self, config, word_vec_size, word_vocab_size, word_padding_idx, position_encoding=False, feat_padding_idx=[], feat_vocab_sizes=[], feat_vec_exponent=0.7, feat_vec_size=-1,):
         super().__init__()
-        self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
-        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
 
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
         # any TensorFlow checkpoint file
+        #self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
+        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
+        self.make_embedding = nn.Sequential()
+
+        self.word_padding_idx = word_padding_idx
+
+        self.word_vec_size = word_vec_size
+
+        # Dimensions and padding for constructing the word embedding matrix
+        vocab_sizes = [word_vocab_size]
+        emb_dims = [word_vec_size]
+        pad_indices = [word_padding_idx]        
+
+        # Dimensions and padding for feature embedding matrices
+        # (these have no effect if feat_vocab_sizes is empty)
+        if feat_merge == 'sum':
+            feat_dims = [word_vec_size] * len(feat_vocab_sizes)
+        elif feat_vec_size > 0:
+            feat_dims = [feat_vec_size] * len(feat_vocab_sizes)
+        else:
+            feat_dims = [int(vocab ** feat_vec_exponent)
+                         for vocab in feat_vocab_sizes]
+        vocab_sizes.extend(feat_vocab_sizes)
+        emb_dims.extend(feat_dims)
+        pad_indices.extend(feat_padding_idx)
+
+        # The embedding matrix look-up tables. The first look-up table
+        # is for words. Subsequent ones are for features, if any exist.
+        emb_params = zip(vocab_sizes, emb_dims, pad_indices)
+        embeddings = [nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse)
+                      for vocab, dim, pad in emb_params]
+
+        emb_luts = Elementwise(feat_merge, embeddings)
+
+        self.make_embedding = nn.Sequential()
+        self.make_embedding.add_module('emb_luts', emb_luts)
+
+        self.embedding_size = (sum(emb_dims) if feat_merge == 'concat'
+                               else word_vec_size)
+        pe = PositionalEncoding(dropout, self.embedding_size)
+        self.make_embedding.add_module('pe', pe)
+
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
         self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
-        self.elementwise = Elementwise('concat', [self.word_embeddings])
 
-    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False):
+    def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, soft=False, step=None,):
         if input_ids is not None:
             input_shape = input_ids.size()
         else:
@@ -197,19 +235,27 @@ class BertEmbeddings(nn.Module):
         if token_type_ids is None:
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=self.position_ids.device)
 
+
         if inputs_embeds is None:
-            if soft == False:
-                inputs_embeds = self.word_embeddings(input_ids)
-            elif soft == True:
-                print(input_ids.shape)
-                print(self.elementwise[0].weight.shape)
-                imput_embeds = torch.matmul(input_ids, self.elementwise[0].weight)
-        position_embeddings = self.position_embeddings(position_ids)
-        token_type_embeddings = self.token_type_embeddings(token_type_ids)
+            for i, module in enumerate(self.make_embedding._modules.values()):
+                if i == len(self.make_embedding._modules.values()) - 1:
+                    source = module(source, step=step)
+                else:
+                    # source = module(source)
+                    if soft==False:  #ÊäÈëÊÇonehot
+                        source = module(source)
+                    elif soft==True: #ÊäÈëÊÇdistribution
+                        # print("enter============")
+                        # print("module: ", module)
+                        # print("grad: ", module[0].weight.grad)
+                        # print("module[0].weight: ", module[0].weight)
+                        source = torch.matmul(source, module[0].weight)
+        #position_embeddings = self.position_embeddings(position_ids)
+        #token_type_embeddings = self.token_type_embeddings(token_type_ids)
         #print(inputs_embeds.shape)
         #print(position_embeddings.shape)
-        embeddings = inputs_embeds + position_embeddings 
-        embeddings = embeddings + token_type_embeddings
+        #embeddings = inputs_embeds + position_embeddings 
+        #embeddings = embeddings + token_type_embeddings
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
         return embeddings
@@ -529,5 +575,3 @@ class BertPooler(nn.Module):
         pooled_output = self.dense(first_token_tensor)
         pooled_output = self.activation(pooled_output)
         return pooled_output
-
-
