@@ -357,8 +357,8 @@ class GPT2Model(GPT2PreTrainedModel):
         try:
             self.latent_size = config.latent_size
         except: 
-            self.latent_size = 512 # default size is 32
-        
+            self.latent_size = 32 # default size is 32
+        self.latent_size = 56
         self.linear = nn.Linear(self.latent_size, config.hidden_size * config.n_layer, bias=False) # different latent vector for each layer 
         self.linear_emb = nn.Linear(self.latent_size, config.hidden_size, bias=False) # share the same latent vector as the embeddings
 
@@ -462,6 +462,8 @@ class GPT2Model(GPT2PreTrainedModel):
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         if latent_as_gpt_emb:
             # pdb.set_trace()
+            print(hidden_states.shape)
+            print(past_emb.shape)
             hidden_states = hidden_states + past_emb.unsqueeze(1)
 
         hidden_states = self.drop(hidden_states)
