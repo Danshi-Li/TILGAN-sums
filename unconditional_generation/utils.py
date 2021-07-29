@@ -132,21 +132,7 @@ class Corpus(object):
         """Tokenizes a text file."""
         dropped = 0
         with open(path, 'r') as f:
-            linecount = 0
-            dropped = 0
-            lines = []
-            for line in f:
-                linecount += 1
-                line=line.strip()
-                if len(line.split()) < 1:
-                    dropped += 1
-                    continue
-                if len(line.split()) > self.maxlen:
-                    dropped += 1
-                    continue
-                # vectorize
-                lines.append(line)
-            indices = self.bertTokenizer(lines, max_length=self.maxlen, padding=True,truncation=True)['input_ids']
+            indices = self.bertTokenizer(f.read(), max_length=self.maxlen, padding=True,truncation=True)['input_ids']
 
         print("Number of sentences dropped from {}: {} out of {} total".
               format(path, dropped, linecount))
