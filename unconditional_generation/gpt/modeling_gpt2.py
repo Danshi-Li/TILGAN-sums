@@ -347,7 +347,6 @@ class GPT2Model(GPT2PreTrainedModel):
         super(GPT2Model, self).__init__(config)
         self.output_hidden_states = config.output_hidden_states
         self.output_attentions = config.output_attentions
-
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.wpe = nn.Embedding(config.n_positions, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
@@ -358,7 +357,7 @@ class GPT2Model(GPT2PreTrainedModel):
             self.latent_size = config.latent_size
         except: 
             self.latent_size = 32 # default size is 32
-        self.latent_size = 56
+
         self.linear = nn.Linear(self.latent_size, config.hidden_size * config.n_layer, bias=False) # different latent vector for each layer 
         self.linear_emb = nn.Linear(self.latent_size, config.hidden_size, bias=False) # share the same latent vector as the embeddings
 
@@ -376,7 +375,7 @@ class GPT2Model(GPT2PreTrainedModel):
         for layer, heads in heads_to_prune.items():
             self.h[layer].attn.prune_heads(heads)
 
-    def forward(self, input_ids, past=None, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None, latent_as_gpt_emb=False, latent_as_gpt_memory=True):
+    def forward(self, input_ids, past=None, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None, latent_as_gpt_emb=True, latent_as_gpt_memory=False):
 
         if past is None:
             past_length = 0
@@ -450,7 +449,8 @@ class GPT2Model(GPT2PreTrainedModel):
         position_ids = position_ids.view(-1, position_ids.size(-1))
 
 
-        inputs_embeds = self.wte(input_ids)
+        #inputs_embeds = self.wte(input_ids)
+        inputs_embeds = input_ids
         position_embeds = self.wpe(position_ids)
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
@@ -458,13 +458,12 @@ class GPT2Model(GPT2PreTrainedModel):
         else:
             token_type_embeds = 0
 
-
+        inputs_embeds = inputs_embeds.unsqueeze(-1)
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         if latent_as_gpt_emb:
             # pdb.set_trace()
-            print(hidden_states.shape)
-            print(past_emb.shape)
-            hidden_states = hidden_states + past_emb.unsqueeze(1)
+            #hidden_states = hidden_states + past_emb.unsqueeze(1)
+            pass
 
         hidden_states = self.drop(hidden_states)
 
@@ -627,7 +626,6 @@ class GPT2ForLatentConnector(GPT2PreTrainedModel):
         
         super(GPT2ForLatentConnector, self).__init__(config)
 
-        
         self.transformer = GPT2Model(config)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
@@ -668,14 +666,16 @@ class GPT2ForLatentConnector(GPT2PreTrainedModel):
             shift_logits = lm_logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
             # Flatten the tokens
+            '''
             loss_fct = CrossEntropyLoss(ignore_index=label_ignore, reduce=False) # 50258 is the padding id, otherwise -1 is used for masked LM.
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
                             shift_labels.view(-1))
             loss = torch.sum(loss.view(-1, shift_labels.shape[-1]), -1)
             outputs = (loss,) + outputs
+            '''
 
 
-        return outputs  # (loss), lm_logits, presents, (all hidden_states), (attentions)
+        return outputs[0]  # (loss), lm_logits, presents, (all hidden_states), (attentions)
 
 @add_start_docstrings("""The GPT2 Model transformer with a language modeling and a multiple-choice classification
 head on top e.g. for RocStories/SWAG tasks. The two heads are two linear layers.
