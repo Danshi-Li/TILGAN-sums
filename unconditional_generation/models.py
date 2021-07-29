@@ -727,7 +727,7 @@ class AE_GPT_dec(nn.Module):
             word_padding_idx=0,
             word_vocab_size=ntokens,
         )
-        self.dec_embedding = GPT2Tokenizer.from_pretrained("gpt2")
+        self.dec_embedding = None
 
         # Transformer Encoder and Decoder
         # nheads = 8
@@ -835,7 +835,7 @@ class AE_GPT_dec(nn.Module):
             self.decoder.init_state(src, memory_bank, enc_state)
         memory_bank = self.unsqueeze_hidden(memory_bank)
 
-        tgt = self.dec_embedding(tgt)
+        #tgt = self.dec_embedding(tgt)
         dec_out, attns = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt, with_align=False)
         dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
         # reshape to batch_size*maxlen x nhidden before linear over vocab

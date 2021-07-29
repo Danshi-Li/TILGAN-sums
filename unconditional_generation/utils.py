@@ -67,7 +67,7 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False):
+    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, bert=False, gpt=False):
         self.dictionary = Dictionary()
         self.maxlen = maxlen
         self.lowercase = lowercase
@@ -81,9 +81,15 @@ class Corpus(object):
         self.train = self.tokenize(self.train_path)
         self.test = self.tokenize(self.test_path)
 
-        self.bertTokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-        self.train_bert = self.tokenize_bert(self.train_path)
-        self.test_bert = self.tokenize_bert(self.test_path)
+        if bert == True:
+            self.bertTokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+            self.train_bert = self.tokenize_bert(self.train_path)
+            self.test_bert = self.tokenize_bert(self.test_path)
+
+        if gpt == True:
+            self.gptTokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+            self.train_gpt = self.tokenize_gpt(self.train_path)
+            self.test_gpt = self.tokenize_gpt(self.test_path)
 
     def make_vocab(self):
         assert os.path.exists(self.train_path)
@@ -133,6 +139,15 @@ class Corpus(object):
         dropped = 0
         with open(path, 'r') as f:
             indices = self.bertTokenizer(f.read(), max_length=self.maxlen, padding=True,truncation=True)['input_ids']
+
+        print("Number of sentences dropped from {}: {} out of {} total".
+              format(path, dropped, linecount))
+        return indices
+
+    def tokenize_gpt(self, path):
+        dropped = 0
+        with open(path, 'r') as f:
+            indices = self.gptTokenizer(f.read(), max_length=self.maxlen, padding=True,truncation=True)['input_ids']
 
         print("Number of sentences dropped from {}: {} out of {} total".
               format(path, dropped, linecount))

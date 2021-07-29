@@ -170,7 +170,8 @@ torch.cuda.manual_seed(args.seed)
 corpus = Corpus(args.data_path,
                 maxlen=args.maxlen,
                 vocab_size=args.vocab_size,
-                lowercase=args.lowercase)
+                lowercase=args.lowercase,
+                bert=True)
 
 # save arguments
 ntokens = len(corpus.dictionary.word2idx)
