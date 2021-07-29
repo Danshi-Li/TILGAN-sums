@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, create_exp_dir
-from models import Seq2Seq, MLP_D, MLP_D_local, MLP_G, AE_BERT_enc, AE_GPT_dec
+from models import Seq2Seq, MLP_D, MLP_D_local, MLP_G, AE_BERT_enc
 from bleu_self import *
 from bleu_test import *
 import datetime
@@ -171,7 +171,7 @@ corpus = Corpus(args.data_path,
                 maxlen=args.maxlen,
                 vocab_size=args.vocab_size,
                 lowercase=args.lowercase,
-                gpt=True)
+                bert=True)
 
 # save arguments
 ntokens = len(corpus.dictionary.word2idx)
@@ -192,10 +192,10 @@ logging(str(vars(args)))
 
 eval_batch_size = args.eval_batch_size
 noise_seq_length = args.noise_seq_length
-test_data_enc = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)
-train_data_enc = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
-test_data_dec = batchify(corpus.test_gpt, eval_batch_size, args.maxlen, shuffle=False)
-train_data_dec = batchify(corpus.train_gpt, args.batch_size, args.maxlen,  shuffle=True)
+test_data_enc = batchify(corpus.test_bert, eval_batch_size, args.maxlen, shuffle=False)
+train_data_enc = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
+test_data_dec = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)
+train_data_dec = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
 train_data = [train_data_enc, train_data_dec]
 test_data = [test_data_enc, test_data_dec]
 
@@ -205,7 +205,7 @@ print("Loaded data!")
 # Build the models
 ###############################################################################
 vocab = os.path.join(args.data_path, "vocab.pkl")
-autoencoder = AE_GPT_dec(add_noise=args.add_noise,
+autoencoder = AE_BERT_enc(vocab=vocab, add_noise=args.add_noise,
                       emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=args.ntokens,
@@ -570,8 +570,8 @@ def train_gan_d_into_ae(batch):
 
 def train():
     logging("Training")
-    train_data_enc = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
-    train_data_dec = batchify(corpus.train_gpt, args.batch_size, args.maxlen,  shuffle=True)
+    train_data_enc = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
+    train_data_dec = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
     train_data = [train_data_enc, train_data_dec]
 
     # gan: preparation

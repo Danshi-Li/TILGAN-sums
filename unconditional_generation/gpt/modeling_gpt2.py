@@ -357,8 +357,8 @@ class GPT2Model(GPT2PreTrainedModel):
         try:
             self.latent_size = config.latent_size
         except: 
-            self.latent_size = 32 # default size is 32
-
+            self.latent_size = 512 # default size is 32
+        
         self.linear = nn.Linear(self.latent_size, config.hidden_size * config.n_layer, bias=False) # different latent vector for each layer 
         self.linear_emb = nn.Linear(self.latent_size, config.hidden_size, bias=False) # share the same latent vector as the embeddings
 

@@ -742,9 +742,10 @@ class AE_GPT_dec(nn.Module):
         alignmentlayer=0
         alignmentheads=0
 
+        self.config = GPT2Config(latent_size = nhidden,)
         self.encoder = TransformerEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.enc_embedding, max_rela_posi, aehidden)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
-        self.decoder = GPT2ForLatentConnector.from_pretrained("gpt2")
+        self.decoder = GPT2ForLatentConnector(self.config)
 
         # Initialize Linear Transformation
         self.linear = nn.Linear(nhidden, ntokens)

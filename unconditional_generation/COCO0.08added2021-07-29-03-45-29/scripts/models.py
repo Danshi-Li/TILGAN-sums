@@ -8,7 +8,7 @@ from onmt.decoders.transformer import TransformerDecoder
 from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
-from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig
+from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config
 from bert.encoder import BertEncoder, BertEmbeddings
 
 from gpt.tokenization_gpt2 import GPT2Tokenizer
@@ -707,7 +707,7 @@ class AE_BERT_enc(nn.Module):
 class AE_GPT_dec(nn.Module):
     def __init__(self, add_noise, emsize, nhidden, ntokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
                  hidden_init=False, dropout=0, gpu=True):
-        super(Seq2Seq, self).__init__()
+        super(AE_GPT_dec, self).__init__()
         self.nhidden = nhidden
         self.emsize = emsize
         self.ntokens = ntokens
@@ -727,7 +727,7 @@ class AE_GPT_dec(nn.Module):
             word_padding_idx=0,
             word_vocab_size=ntokens,
         )
-        self.dec_embedding = GPT2Tokenizer.from_pretrained("gpt2")
+        self.dec_embedding = None
 
         # Transformer Encoder and Decoder
         # nheads = 8
@@ -741,6 +741,7 @@ class AE_GPT_dec(nn.Module):
         fullcontextalignment=False
         alignmentlayer=0
         alignmentheads=0
+
         self.encoder = TransformerEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.enc_embedding, max_rela_posi, aehidden)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = GPT2ForLatentConnector.from_pretrained("gpt2")
@@ -830,13 +831,14 @@ class AE_GPT_dec(nn.Module):
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
             return memory_bank.transpose(0,1).contiguous().view(batchsize, -1)  #[64, 1600] doing concatenation
+        '''
         bptt = False
         if bptt is False:
-            self.decoder.init_state(src, memory_bank, enc_state)
+            self.init_state(src, memory_bank, enc_state)
         memory_bank = self.unsqueeze_hidden(memory_bank)
-
-        tgt = self.dec_embedding(tgt)
-        dec_out, attns = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt, with_align=False)
+        '''
+        #tgt = self.dec_embedding(tgt)
+        dec_out, attns = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt)
         dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
         # reshape to batch_size*maxlen x nhidden before linear over vocab
 
