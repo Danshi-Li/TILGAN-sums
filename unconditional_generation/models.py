@@ -8,7 +8,7 @@ from onmt.decoders.transformer import TransformerDecoder
 from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
-from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config, GPT2Model, GPT2Tokenizer
+from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config, GPT2Model, GPT2Tokenizer, GPT2LMHeadModel
 from bert.encoder import BertEncoder, BertEmbeddings
 
 #from gpt.tokenization_gpt2 import GPT2Tokenizer
@@ -743,8 +743,8 @@ class AE_GPT_dec(nn.Module):
         alignmentheads=0
 
         self.encoder = TransformerEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.enc_embedding, max_rela_posi, aehidden)
-        self.unsqueeze_hidden = nn.Linear(aehidden, 768)
-        self.decoder = GPT2ForLatentConnector.from_pretrained("gpt2")
+        self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
+        self.decoder = GPT2LMHeadModel.from_pretrained("gpt2")
 
         # Initialize Linear Transformation
         self.linear = nn.Linear(nhidden, ntokens)
@@ -827,7 +827,7 @@ class AE_GPT_dec(nn.Module):
         #   lengths_tensor = torch.LongTensor(lengths)
         # lengths_tensor[:] = max(lengths_tensor)
         enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
-
+        memory_bank = self.unsqueeze_hidden(memory_bank)
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
             return memory_bank.transpose(0,1).contiguous().view(batchsize, -1)  #[64, 1600] doing concatenation
@@ -840,7 +840,17 @@ class AE_GPT_dec(nn.Module):
         #memory_bank = self.dec_embedding(memory_bank)
         tgt = tgt.contiguous()
         memory_bank = memory_bank.contiguous()
-        dec_out = self.decoder(memory_bank, labels=tgt)
+        '''
+        The method applied by Optimus, see paper fig.3. Different from our design
+        Different decoder dims applied
+        dec_out = self.decoder(tgt, past=memory_bank)
+        '''
+        #memory_bank dim: [max_len+1, batch_size, nhidden]
+        #tgt dim: [max_len+1, batch_size, 1]
+        memory_bank = memory_bank.view(memory_bank.shape[2], -1)
+        dec_out = self.decoder(inputs_embeds=memory_bank, labels=tgt)
+        print(dec_out.shape)
+        raise ValueError("check dec output value")
         dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
         # reshape to batch_size*maxlen x nhidden before linear over vocab
 
