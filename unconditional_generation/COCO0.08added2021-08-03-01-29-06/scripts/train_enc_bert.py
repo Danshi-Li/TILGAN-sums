@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, create_exp_dir
-from models import Seq2Seq, MLP_D, MLP_D_local, MLP_G, AE_BERT_enc, AE_GPT_dec
+from models import Seq2Seq, MLP_D, MLP_D_local, MLP_G, AE_BERT_enc
 from bleu_self import *
 from bleu_test import *
 import datetime
@@ -171,11 +171,10 @@ corpus = Corpus(args.data_path,
                 maxlen=args.maxlen,
                 vocab_size=args.vocab_size,
                 lowercase=args.lowercase,
-                gpt=True)
+                bert=True)
 
 # save arguments
 ntokens = len(corpus.dictionary.word2idx)
-gpt_tokens = 50257
 print("Vocabulary Size: {}".format(ntokens))
 args.ntokens = ntokens
 
@@ -193,10 +192,10 @@ logging(str(vars(args)))
 
 eval_batch_size = args.eval_batch_size
 noise_seq_length = args.noise_seq_length
-test_data_enc = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)
-train_data_enc = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
-test_data_dec = batchify(corpus.test_gpt, eval_batch_size, args.maxlen, shuffle=False)
-train_data_dec = batchify(corpus.train_gpt, args.batch_size, args.maxlen,  shuffle=True)
+test_data_enc = batchify(corpus.test_bert, eval_batch_size, args.maxlen, shuffle=False)
+train_data_enc = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
+test_data_dec = batchify(corpus.test, eval_batch_size, args.maxlen, shuffle=False)
+train_data_dec = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
 train_data = [train_data_enc, train_data_dec]
 test_data = [test_data_enc, test_data_dec]
 
@@ -206,11 +205,10 @@ print("Loaded data!")
 # Build the models
 ###############################################################################
 vocab = os.path.join(args.data_path, "vocab.pkl")
-autoencoder = AE_GPT_dec(add_noise=args.add_noise,
+autoencoder = AE_BERT_enc(vocab=vocab, add_noise=args.add_noise,
                       emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=args.ntokens,
-                      gpt_tokens=gpt_tokens,
                       nlayers=args.nlayers,
                       nheads=args.nheads,
                       nff=args.nff,
@@ -219,7 +217,7 @@ autoencoder = AE_GPT_dec(add_noise=args.add_noise,
                       hidden_init=args.hidden_init,
                       dropout=args.dropout,
                       gpu=True)
-nlatent = 768 * (args.maxlen+1)
+nlatent = args.aehidden * (args.maxlen+1)
 gan_gen = MLP_G(ninput=args.z_size, noutput=nlatent, layers=args.arch_g, gan_g_activation=args.gan_g_activation)
 gan_disc = MLP_D(ninput=nlatent, noutput=1, layers=args.arch_d)
 gan_disc_local = MLP_D_local(ninput=args.gan_d_local_windowsize * args.aehidden, noutput=1, layers=args.arch_d_local)
@@ -265,9 +263,8 @@ def save_model():
 def cal_norm(model):
     total_norm = 0
     for p in model.parameters():
-        if p.grad is not None:
-            param_norm = p.grad.data.norm(2)
-            total_norm += param_norm.item() ** 2
+        param_norm = p.grad.data.norm(2)
+        total_norm += param_norm.item() ** 2
     total_norm = total_norm ** (1. / 2)
     return total_norm
 
@@ -301,30 +298,25 @@ def evaluate_autoencoder(data_source, epoch):
             mask = target.gt(0)
             masked_target = target.masked_select(mask)
             # examples x ntokens
-            output_mask = mask.unsqueeze(1).expand(mask.size(0), gpt_tokens)
+            output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
 
             # output: batch x seq_len x ntokens
             output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
-            flattened_output = output.view(-1, gpt_tokens)
+            flattened_output = output.view(-1, ntokens)
 
             masked_output = \
-                flattened_output.masked_select(output_mask).view(-1, gpt_tokens)
+                flattened_output.masked_select(output_mask).view(-1, ntokens)
             total_loss += F.cross_entropy(masked_output, masked_target)
 
             # accuracy
             max_vals, max_indices = torch.max(masked_output, 1)
-            print("max_indices shape: ", max_indices.shape)
-            print("max indices: ", max_indices)
-            print("masked target shape: ", masked_target.shape)
-            print("masked target: ", masked_target)
-            print("eq: ", max_indices.eq(masked_target).float())
             accuracy = torch.mean(max_indices.eq(masked_target).float()).data.item()
             all_accuracies += accuracy
             bcnt += 1
 
         aeoutf = os.path.join(args.save, "autoencoder.txt")
         with open(aeoutf, "w") as f:
-            max_values, max_indices = torch.max(output, -1)
+            max_values, max_indices = torch.max(output, 2)
             max_indices = \
                 max_indices.view(output.size(0), -1).data.cpu().numpy()
             target = target.view(output.size(0), -1).data.cpu().numpy()
@@ -380,17 +372,9 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
     mask = target.gt(0)
     masked_target = target.masked_select(mask)
-    output_mask = mask.unsqueeze(1).expand(mask.size(0), gpt_tokens)
-    flat_output = output.view(-1, gpt_tokens)
-    #print("flat_output size:", flat_output.shape)
-    #print("flat_output: ",flat_output)
-    #print("output mask shape:", output_mask.shape)
-    #print("output mask: ", output_mask)
-    masked_output = flat_output.masked_select(output_mask).view(-1, gpt_tokens)
-    target_len = masked_target.shape[0]
-    masked_output = masked_output[:target_len,:]
-    target_shift = torch.ones_like(masked_target)
-    masked_target = torch.sub(masked_target, target_shift)
+    output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
+    flat_output = output.view(-1, ntokens)
+    masked_output = flat_output.masked_select(output_mask).view(-1, ntokens)
     loss = F.cross_entropy(masked_output, masked_target)
     loss.backward()
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
@@ -516,8 +500,6 @@ def train_gan_d(batch, gan_type='kl'):
     source_dec = Variable(source_dec.to(device))
     target = Variable(target.to(device))
     real_hidden = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False, encode_only=True)
-    #print("nlatent: ", nlatent)
-    #print("real hidden: ", real_hidden.shape)
     real_score = gan_disc(real_hidden.detach())
 
     idx = random.randint(0, args.maxlen - args.gan_d_local_windowsize)
@@ -588,8 +570,8 @@ def train_gan_d_into_ae(batch):
 
 def train():
     logging("Training")
-    train_data_enc = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
-    train_data_dec = batchify(corpus.train_gpt, args.batch_size, args.maxlen,  shuffle=True)
+    train_data_enc = batchify(corpus.train_bert, args.batch_size, args.maxlen,  shuffle=True)
+    train_data_dec = batchify(corpus.train, args.batch_size, args.maxlen,  shuffle=True)
     train_data = [train_data_enc, train_data_dec]
 
     # gan: preparation

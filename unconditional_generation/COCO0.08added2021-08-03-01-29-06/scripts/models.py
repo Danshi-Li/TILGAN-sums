@@ -549,7 +549,7 @@ class AE_BERT_enc(nn.Module):
         
         #src = self.enc_embedding(src, soft=soft)
         
-        memory_bank = self.encoder(src)[0]
+        memory_bank = self.encoder(src)[0].transpose(0,1)
         #print("Successfully attained latent output from encoder")
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
