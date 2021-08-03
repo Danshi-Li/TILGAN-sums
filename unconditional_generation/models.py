@@ -9,7 +9,7 @@ from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
 from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config, GPT2Tokenizer, GPT2Model, GPT2LMHeadModel
-from bert.encoder import BertEncoder, BertEmbeddings
+from bert.encoder import BertEncoder, BertEmbeddings, BertPooler
 
 #from gpt.tokenization_gpt2 import GPT2Tokenizer
 from gpt.modeling_gpt2 import GPT2ForLatentConnector
@@ -462,7 +462,7 @@ class AE_BERT_enc(nn.Module):
         alignmentlayer=0
         alignmentheads=0
 
-        self.encoder = BertEncoder(self.config)
+        self.encoder = BertModel(self.config)
         self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
         self.decoder = TransformerDecoder(nlayers, nhidden, nheads, nff, copyatten, selfattntype, dropout, atten_dropout, self.dec_embedding, max_rela_posi, aanuseffn,fullcontextalignment, alignmentlayer, alignmentheads)
 
@@ -547,9 +547,9 @@ class AE_BERT_enc(nn.Module):
         # lengths_tensor[:] = max(lengths_tensor)
         #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
         
-        src = self.enc_embedding(src, soft=soft)
+        #src = self.enc_embedding(src, soft=soft)
         
-        memory_bank = self.encoder(src)[0]
+        memory_bank = self.encoder(src)[0].transpose(0,1)
         #print("Successfully attained latent output from encoder")
         if encode_only:
             # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
