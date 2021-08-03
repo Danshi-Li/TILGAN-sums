@@ -390,8 +390,12 @@ class Conv1D(nn.Module):
         self.bias = nn.Parameter(torch.zeros(nf))
 
     def forward(self, x):
+        bias = self.bias.unsqueeze(0)
         size_out = x.size()[:-1] + (self.nf,)
-        x = torch.addmm(self.bias, x.view(-1, x.size(-1)), self.weight)
+        #print("dim of self.bias(should be n*p): ", self.bias.shape)
+        #print("dim of arg mat1(should be n*m): ", x.view(-1, x.size(-1)).shape)
+        #print("dim of arg mat2(should be m*p): ", self.weight.shape)
+        x = torch.addmm(bias, x.view(-1, x.size(-1)), self.weight)
         x = x.view(*size_out)
         return x
 

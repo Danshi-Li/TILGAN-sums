@@ -8,7 +8,7 @@ from onmt.decoders.transformer import TransformerDecoder
 from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
-from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config, GPT2Model, GPT2Tokenizer, GPT2LMHeadModel
+from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config, GPT2Tokenizer, GPT2Model, GPT2LMHeadModel
 from bert.encoder import BertEncoder, BertEmbeddings
 
 #from gpt.tokenization_gpt2 import GPT2Tokenizer
@@ -705,7 +705,7 @@ class AE_BERT_enc(nn.Module):
 
 
 class AE_GPT_dec(nn.Module):
-    def __init__(self, add_noise, emsize, nhidden, ntokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
+    def __init__(self, add_noise, emsize, nhidden, ntokens, gpt_tokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
                  hidden_init=False, dropout=0, gpu=True):
         super(AE_GPT_dec, self).__init__()
         self.nhidden = nhidden
@@ -716,9 +716,10 @@ class AE_GPT_dec(nn.Module):
         self.hidden_init = hidden_init
         self.dropout = dropout
         self.gpu = gpu
+        self.gpt_tokens = gpt_tokens
 
         self.config = GPT2Config.from_pretrained("gpt2")
-
+        self.config.n_embd = self.nhidden
         self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
         # Transformer Embedding
         self.enc_embedding = Embeddings(
@@ -743,11 +744,11 @@ class AE_GPT_dec(nn.Module):
         alignmentheads=0
 
         self.encoder = TransformerEncoder(add_noise, nlayers, nhidden, nheads, nff, dropout, atten_dropout, self.enc_embedding, max_rela_posi, aehidden)
-        self.unsqueeze_hidden = nn.Linear(aehidden, nhidden)
+        self.unsqueeze_hidden = nn.Linear(aehidden, 768)
         self.decoder = GPT2LMHeadModel.from_pretrained("gpt2")
 
         # Initialize Linear Transformation
-        self.linear = nn.Linear(nhidden, ntokens)
+        self.linear = nn.Linear(nhidden, gpt_tokens)
 
         self.init_weights()
 
@@ -838,7 +839,8 @@ class AE_GPT_dec(nn.Module):
         memory_bank = self.unsqueeze_hidden(memory_bank)
         '''
         #memory_bank = self.dec_embedding(memory_bank)
-        tgt = tgt.contiguous()
+        if soft==False:
+            tgt = tgt.squeeze(-1)
         memory_bank = memory_bank.contiguous()
         '''
         The method applied by Optimus, see paper fig.3. Different from our design
@@ -847,16 +849,15 @@ class AE_GPT_dec(nn.Module):
         '''
         #memory_bank dim: [max_len+1, batch_size, nhidden]
         #tgt dim: [max_len+1, batch_size, 1]
-        memory_bank = memory_bank.view(memory_bank.shape[2], -1)
-        dec_out = self.decoder(inputs_embeds=memory_bank, labels=tgt)
-        print(dec_out.shape)
-        raise ValueError("check dec output value")
+        memory_bank = memory_bank.view(-1, memory_bank.shape[2])
+        #print("entering decoder")
+        #dec_out = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt)
+        dec_out = self.decoder(inputs_embeds=memory_bank).logits
         dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
         # reshape to batch_size*maxlen x nhidden before linear over vocab
 
-        decoded = self.linear(dec_out.contiguous().view(-1, self.nhidden))
-        decoded = decoded.view(batchsize, max_len, self.ntokens)
-
+        #decoded = self.linear(dec_out.contiguous().view(-1, self.nhidden))
+        decoded = dec_out.transpose(0,1)
         # return dec_out, attns
         return decoded
 

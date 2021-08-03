@@ -142,24 +142,24 @@ class Attention(nn.Module):
         self.pruned_heads = self.pruned_heads.union(heads)
 
     def _attn(self, q, k, v, attention_mask=None, head_mask=None):
+        print("q shape: ", q.shape)
+        print("k shape: ", k.shape)
+        print(q)
+        print(k)
         w = torch.matmul(q, k)
         if self.scale:
             w = w / math.sqrt(v.size(-1))
         nd, ns = w.size(-2), w.size(-1)
         b = self.bias[:, :, ns-nd:ns, :ns]
         w = w * b - 1e4 * (1 - b)
-
         if attention_mask is not None:
             # Apply the attention mask
             w = w + attention_mask
-
         w = nn.Softmax(dim=-1)(w)
         w = self.attn_dropout(w)
-
         # Mask heads if we want to
         if head_mask is not None:
             w = w * head_mask
-
         outputs = [torch.matmul(w, v)]
         if self.output_attentions:
             outputs.append(w)
@@ -179,8 +179,10 @@ class Attention(nn.Module):
             return x.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
 
     def forward(self, x, layer_past=None, attention_mask=None, head_mask=None):
+        print("x in Attention(): ", x)
         x = self.c_attn(x)
         query, key, value = x.split(self.split_size, dim=2)
+        print("query: ", query)
         query = self.split_heads(query)
         key = self.split_heads(key, k=True)
         value = self.split_heads(value)
@@ -201,7 +203,7 @@ class Attention(nn.Module):
 
         a = self.merge_heads(a)
         a = self.c_proj(a)
-        a = self.resid_dropout(a)
+        #a = self.resid_dropout(a)
 
         outputs = [a, present] + attn_outputs[1:]
         return outputs  # a, present, (attentions)
@@ -232,6 +234,7 @@ class Block(nn.Module):
         self.mlp = MLP(4 * nx, config)
 
     def forward(self, x, layer_past=None, attention_mask=None, head_mask=None):
+        print("x in Block(): ", x)
         output_attn = self.attn(self.ln_1(x),
                                 layer_past=layer_past,
                                 attention_mask=attention_mask,
@@ -345,6 +348,7 @@ class GPT2Model(GPT2PreTrainedModel):
     """
     def __init__(self, config):
         super(GPT2Model, self).__init__(config)
+        print("GPT2 model initialization")
         self.output_hidden_states = config.output_hidden_states
         self.output_attentions = config.output_attentions
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
@@ -376,7 +380,7 @@ class GPT2Model(GPT2PreTrainedModel):
             self.h[layer].attn.prune_heads(heads)
 
     def forward(self, input_ids, past=None, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None, latent_as_gpt_emb=True, latent_as_gpt_memory=False):
-
+        print("GPT2 model forward prop")
         if past is None:
             past_length = 0
             past = [None] * len(self.h)
@@ -449,17 +453,22 @@ class GPT2Model(GPT2PreTrainedModel):
         position_ids = position_ids.view(-1, position_ids.size(-1))
 
 
-        #inputs_embeds = self.wte(input_ids)
-        inputs_embeds = input_ids
+        inputs_embeds = self.wte(input_ids)
         position_embeds = self.wpe(position_ids)
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
             token_type_embeds = self.wte(token_type_ids)
         else:
-            token_type_embeds = 0
-
-        inputs_embeds = inputs_embeds.unsqueeze(-1)
+            token_type_embeds = torch.zeros_like(position_embeds)
+ 
+        print("inputs embed size: ", inputs_embeds.shape)
+        print("inputs embeds: ", inputs_embeds)
+        print("position embeds size: ", position_embeds.shape)
+        print("position embeds: ", position_embeds)
+        print("token_type_embeds: ", token_type_embeds.shape)  
+        print("token type embeds: ", token_type_embeds)
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
+        print("hidden states just added embeds:", hidden_states)
         if latent_as_gpt_emb:
             # pdb.set_trace()
             #hidden_states = hidden_states + past_emb.unsqueeze(1)
@@ -476,7 +485,7 @@ class GPT2Model(GPT2PreTrainedModel):
             if self.output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states.view(*output_shape),)
 
-            
+            print("hidden states before Block(): ", hidden_states)
             outputs = block(hidden_states,
                             layer_past=layer_past,
                             attention_mask=attention_mask,

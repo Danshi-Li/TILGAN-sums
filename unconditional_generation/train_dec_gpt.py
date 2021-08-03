@@ -175,6 +175,7 @@ corpus = Corpus(args.data_path,
 
 # save arguments
 ntokens = len(corpus.dictionary.word2idx)
+gpt_tokens = 50257
 print("Vocabulary Size: {}".format(ntokens))
 args.ntokens = ntokens
 
@@ -209,6 +210,7 @@ autoencoder = AE_GPT_dec(add_noise=args.add_noise,
                       emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=args.ntokens,
+                      gpt_tokens=gpt_tokens,
                       nlayers=args.nlayers,
                       nheads=args.nheads,
                       nff=args.nff,
@@ -217,7 +219,7 @@ autoencoder = AE_GPT_dec(add_noise=args.add_noise,
                       hidden_init=args.hidden_init,
                       dropout=args.dropout,
                       gpu=True)
-nlatent = args.aehidden * (args.maxlen+1)
+nlatent = 768 * (args.maxlen+1)
 gan_gen = MLP_G(ninput=args.z_size, noutput=nlatent, layers=args.arch_g, gan_g_activation=args.gan_g_activation)
 gan_disc = MLP_D(ninput=nlatent, noutput=1, layers=args.arch_d)
 gan_disc_local = MLP_D_local(ninput=args.gan_d_local_windowsize * args.aehidden, noutput=1, layers=args.arch_d_local)
@@ -263,8 +265,9 @@ def save_model():
 def cal_norm(model):
     total_norm = 0
     for p in model.parameters():
-        param_norm = p.grad.data.norm(2)
-        total_norm += param_norm.item() ** 2
+        if p.grad is not None:
+            param_norm = p.grad.data.norm(2)
+            total_norm += param_norm.item() ** 2
     total_norm = total_norm ** (1. / 2)
     return total_norm
 
@@ -298,14 +301,14 @@ def evaluate_autoencoder(data_source, epoch):
             mask = target.gt(0)
             masked_target = target.masked_select(mask)
             # examples x ntokens
-            output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
+            output_mask = mask.unsqueeze(1).expand(mask.size(0), gpt_tokens)
 
             # output: batch x seq_len x ntokens
             output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
-            flattened_output = output.view(-1, ntokens)
+            flattened_output = output.view(-1, gpt_tokens)
 
             masked_output = \
-                flattened_output.masked_select(output_mask).view(-1, ntokens)
+                flattened_output.masked_select(output_mask).view(-1, gpt_tokens)
             total_loss += F.cross_entropy(masked_output, masked_target)
 
             # accuracy
@@ -372,9 +375,17 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
     mask = target.gt(0)
     masked_target = target.masked_select(mask)
-    output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
-    flat_output = output.view(-1, ntokens)
-    masked_output = flat_output.masked_select(output_mask).view(-1, ntokens)
+    output_mask = mask.unsqueeze(1).expand(mask.size(0), gpt_tokens)
+    flat_output = output.view(-1, gpt_tokens)
+    #print("flat_output size:", flat_output.shape)
+    #print("flat_output: ",flat_output)
+    #print("output mask shape:", output_mask.shape)
+    #print("output mask: ", output_mask)
+    masked_output = flat_output.masked_select(output_mask).view(-1, gpt_tokens)
+    target_len = masked_target.shape[0]
+    masked_output = masked_output[:target_len,:]
+    target_shift = torch.ones_like(masked_target)
+    masked_target = torch.sub(masked_target, target_shift)
     loss = F.cross_entropy(masked_output, masked_target)
     loss.backward()
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
@@ -500,6 +511,8 @@ def train_gan_d(batch, gan_type='kl'):
     source_dec = Variable(source_dec.to(device))
     target = Variable(target.to(device))
     real_hidden = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False, encode_only=True)
+    #print("nlatent: ", nlatent)
+    #print("real hidden: ", real_hidden.shape)
     real_score = gan_disc(real_hidden.detach())
 
     idx = random.randint(0, args.maxlen - args.gan_d_local_windowsize)
