@@ -1,4 +1,4 @@
-﻿# coding=utf-8
+# coding=utf-8
 # Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
 # Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -392,6 +392,7 @@ class Conv1D(nn.Module):
     def forward(self, x):
         bias = self.bias.unsqueeze(0)
         size_out = x.size()[:-1] + (self.nf,)
+
         #print("dim of self.bias(should be n*p): ", self.bias.shape)
         #print("dim of arg mat1(should be n*m): ", x.view(-1, x.size(-1)).shape)
         #print("dim of arg mat2(should be m*p): ", self.weight.shape)
