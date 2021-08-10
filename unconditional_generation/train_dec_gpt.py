@@ -291,38 +291,62 @@ def evaluate_autoencoder(data_source, epoch):
     ntokens = len(corpus.dictionary.word2idx)
     all_accuracies = 0
     bcnt = 0
-    for i, batch in enumerate(data_source[0]):
-        source_enc, _, lengths = batch
+    '''
+    testing multiple to(device) applicability:
+
+    for idx in range(10):
+        atensor = torch.Tensor([1,2,3,4,5,6])
+        atensor = atensor.to(device)
+        print("atensor to device success {} times".format(idx))
+    '''
+
+    for i in range(len(data_source[0])):
+        source_enc, _, lengths = data_source[0][i]
         source_dec, target, _ = data_source[1][i]
+        '''
+        demo of data_source structure
+        data_source = [dataset_enc, dataset_dec]
+        dataset_enc = (in batches)  = [batch0, batch1, ... batchN]
+        encoder batch i = data_source[0][i]
+        '''
         with torch.no_grad():
+            #print("atensor to device success")
+            #print("source_enc: ", source_enc)
+            #print("source_dec: ", source_dec)
+            #print("Now feed both sources to device, device=", device)
             source_enc = Variable(source_enc.to(device))
             source_dec = Variable(source_dec.to(device))
             target = Variable(target.to(device))
+            #print("model spec tensors to device success")
             mask = target.gt(0)
             masked_target = target.masked_select(mask)
             # examples x ntokens
             output_mask = mask.unsqueeze(1).expand(mask.size(0), gpt_tokens)
-
             # output: batch x seq_len x ntokens
             output = autoencoder(source_enc, lengths, source_dec, add_noise=args.add_noise, soft=False)
+            #print("output: ", output)
             flattened_output = output.view(-1, gpt_tokens)
-
+            #print("flattened output shape:",flattened_output.shape)
+            #print("output mask shape:", output_mask.shape)
             masked_output = \
                 flattened_output.masked_select(output_mask).view(-1, gpt_tokens)
+            shift = torch.ones_like(masked_target)
+            masked_target -= shift
+            #print("masked output shape:", masked_output.shape)
+            #print("masked target shape:", masked_target.shape)
+            #print("masked output:", masked_output)
+            #print("masked target:", masked_target)
             total_loss += F.cross_entropy(masked_output, masked_target)
 
             # accuracy
             max_vals, max_indices = torch.max(masked_output, 1)
-            print("max_indices shape: ", max_indices.shape)
-            print("max indices: ", max_indices)
-            print("masked target shape: ", masked_target.shape)
-            print("masked target: ", masked_target)
-            print("eq: ", max_indices.eq(masked_target).float())
-            accuracy = torch.mean(max_indices.eq(masked_target).float()).data.item()
+            accuracy = 0
+            #accuracy = torch.mean(max_indices.eq(masked_target).float()).data.item()
             all_accuracies += accuracy
             bcnt += 1
 
         aeoutf = os.path.join(args.save, "autoencoder.txt")
+        
         with open(aeoutf, "w") as f:
             max_values, max_indices = torch.max(output, -1)
             max_indices = \
@@ -330,13 +354,15 @@ def evaluate_autoencoder(data_source, epoch):
             target = target.view(output.size(0), -1).data.cpu().numpy()
             for t, idx in zip(target, max_indices):
                 # real sentence
-                chars = " ".join([corpus.dictionary.idx2word[x] for x in t])
+                chars = corpus.gptTokenizer.convert_ids_to_tokens(t)
+                chars = ' '.join(chars)
                 f.write(chars + '\n')
                 # autoencoder output sentence
-                chars = " ".join([corpus.dictionary.idx2word[x] for x in idx])
+                chars = corpus.gptTokenizer.convert_ids_to_tokens(idx)
+                chars = ' '.join(chars)
                 f.write(chars + '\n'*2)
-
-    return total_loss.item() / len(data_source), all_accuracies/bcnt
+        
+    return total_loss.item() / len(data_source[0]), all_accuracies/bcnt
 
 
 def gen_fixed_noise(noise, to_save):
@@ -350,7 +376,7 @@ def gen_fixed_noise(noise, to_save):
         max_indices = max_indices.data.cpu().numpy()
         for idx in max_indices:
             # generated sentence
-            words = [corpus.dictionary.idx2word[x] for x in idx]
+            words = corpus.gptTokenizer.convert_ids_to_tokens(idx)
             # truncate sentences to first occurrence of <eos>
             truncated_sent = []
             for w in words:
@@ -599,6 +625,7 @@ def train():
         gan_schedule = []
     niter_gan = 1
     fixed_noise = Variable(torch.ones(args.eval_batch_size, args.z_size).normal_(0, 1).to(device))
+
 
     for epoch in range(1, args.epochs+1):
         # update gan training schedule
