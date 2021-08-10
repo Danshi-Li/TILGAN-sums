@@ -84,12 +84,14 @@ class Corpus(object):
             self.bertTokenizer = BertTokenizer.from_pretrained('bert-base-cased')
             self.train_bert = self.tokenize_bert(self.train_path)
             self.test_bert = self.tokenize_bert(self.test_path)
+            
 
         if gpt == True:
             self.gptTokenizer = GPT2Tokenizer.from_pretrained("gpt2")
             self.gptTokenizer.add_special_tokens({'pad_token': '[PAD]'})
             self.train_gpt = self.tokenize_gpt(self.train_path)
             self.test_gpt = self.tokenize_gpt(self.test_path)
+            
 
     def make_vocab(self):
         assert os.path.exists(self.train_path)
@@ -176,7 +178,6 @@ class Corpus(object):
                 # vectorize
                 lines.append(line)
             indices = self.gptTokenizer(lines, max_length=self.maxlen, padding=True,truncation=True)['input_ids']
-
         print("Number of sentences dropped from {}: {} out of {} total".
               format(path, dropped, linecount))
         return indices
