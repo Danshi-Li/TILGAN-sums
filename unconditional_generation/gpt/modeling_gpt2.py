@@ -1,4 +1,4 @@
-﻿# coding=utf-8
+# coding=utf-8
 # Copyright 2018 The OpenAI Team Authors and HuggingFace Inc. team.
 # Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -142,10 +142,10 @@ class Attention(nn.Module):
         self.pruned_heads = self.pruned_heads.union(heads)
 
     def _attn(self, q, k, v, attention_mask=None, head_mask=None):
-        print("q shape: ", q.shape)
-        print("k shape: ", k.shape)
-        print(q)
-        print(k)
+        #print("q shape: ", q.shape)
+        #print("k shape: ", k.shape)
+        #print(q)
+        #print(k)
         w = torch.matmul(q, k)
         if self.scale:
             w = w / math.sqrt(v.size(-1))
@@ -166,34 +166,33 @@ class Attention(nn.Module):
         return outputs
 
     def merge_heads(self, x):
-        x = x.permute(0, 2, 1, 3).contiguous()
+        x = x.permute(0, 3, 1, 2).contiguous()
         new_x_shape = x.size()[:-2] + (x.size(-2) * x.size(-1),)
+        #print(new_x_shape)
         return x.view(*new_x_shape)  # in Tensorflow implem: fct merge_states
 
     def split_heads(self, x, k=False):
         new_x_shape = x.size()[:-1] + (self.n_head, x.size(-1) // self.n_head)
         x = x.view(*new_x_shape)  # in Tensorflow implem: fct split_states
         if k:
-            return x.permute(0, 2, 3, 1)  # (batch, head, head_features, seq_length)
+            return x.permute(0, 2, 1, 3)  # (batch, head, head_features, seq_length)
         else:
-            return x.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
+            return x.permute(0, 2, 3, 1)  # (batch, head, seq_length, head_features)
 
     def forward(self, x, layer_past=None, attention_mask=None, head_mask=None):
-        print("x in Attention(): ", x)
         x = self.c_attn(x)
         query, key, value = x.split(self.split_size, dim=2)
-        print("query: ", query)
         query = self.split_heads(query)
         key = self.split_heads(key, k=True)
         value = self.split_heads(value)
 
         
         if layer_past is not None:
-            past_key, past_value = layer_past[0], layer_past[1]  # transpose back cf below
-            
+            past_key, past_value = layer_past[0].squeeze(1), layer_past[1].squeeze(1)  # transpose back cf below
             past_key = self.split_heads(past_key, k=True)
             past_value = self.split_heads(past_value)
             # pdb.set_trace()
+            #print("key shapes:",past_key.shape,key.shape)
             key = torch.cat((past_key, key), dim=-1)
             value = torch.cat((past_value, value), dim=-2)
         present = torch.stack((key.transpose(-2, -1), value))  # transpose to have same shapes for stacking
@@ -203,7 +202,7 @@ class Attention(nn.Module):
 
         a = self.merge_heads(a)
         a = self.c_proj(a)
-        #a = self.resid_dropout(a)
+        a = self.resid_dropout(a)
 
         outputs = [a, present] + attn_outputs[1:]
         return outputs  # a, present, (attentions)
@@ -234,7 +233,7 @@ class Block(nn.Module):
         self.mlp = MLP(4 * nx, config)
 
     def forward(self, x, layer_past=None, attention_mask=None, head_mask=None):
-        print("x in Block(): ", x)
+        #print("x in Block(): ", x)
         output_attn = self.attn(self.ln_1(x),
                                 layer_past=layer_past,
                                 attention_mask=attention_mask,
@@ -361,7 +360,7 @@ class GPT2Model(GPT2PreTrainedModel):
             self.latent_size = config.latent_size
         except: 
             self.latent_size = 32 # default size is 32
-        self.latent_size = 512
+        self.latent_size = 768
         self.linear = nn.Linear(self.latent_size, config.hidden_size * config.n_layer, bias=False) # different latent vector for each layer 
         self.linear_emb = nn.Linear(self.latent_size, config.hidden_size, bias=False) # share the same latent vector as the embeddings
 
@@ -380,7 +379,7 @@ class GPT2Model(GPT2PreTrainedModel):
             self.h[layer].attn.prune_heads(heads)
 
     def forward(self, input_ids, past=None, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None, latent_as_gpt_emb=True, latent_as_gpt_memory=False):
-        print("GPT2 model forward prop")
+        #print("input ids:",input_ids)
         if past is None:
             past_length = 0
             past = [None] * len(self.h)
@@ -388,9 +387,13 @@ class GPT2Model(GPT2PreTrainedModel):
             
 
             if latent_as_gpt_emb:
+                #print("past shape: ",past.shape)
+                #print("weight shape:", self.linear.weight.shape)
                 past_emb = self.linear_emb(past) # used as embeddings to add on other three embeddings
-
+                
             if latent_as_gpt_memory:
+                #print("past shape: ",past.shape)
+                #print("weight shape:", self.linear.weight.shape)
                 past = self.linear(past)
                 share_latent = False
                 if share_latent: 
@@ -452,7 +455,6 @@ class GPT2Model(GPT2PreTrainedModel):
         input_ids = input_ids.view(-1, input_ids.size(-1))
         position_ids = position_ids.view(-1, position_ids.size(-1))
 
-
         inputs_embeds = self.wte(input_ids)
         position_embeds = self.wpe(position_ids)
         if token_type_ids is not None:
@@ -460,15 +462,16 @@ class GPT2Model(GPT2PreTrainedModel):
             token_type_embeds = self.wte(token_type_ids)
         else:
             token_type_embeds = torch.zeros_like(position_embeds)
- 
-        print("inputs embed size: ", inputs_embeds.shape)
-        print("inputs embeds: ", inputs_embeds)
+        '''
+        print("input emb size:", inputs_embeds.shape)
+        print("input emb:",inputs_embeds)
         print("position embeds size: ", position_embeds.shape)
         print("position embeds: ", position_embeds)
-        print("token_type_embeds: ", token_type_embeds.shape)  
-        print("token type embeds: ", token_type_embeds)
+        #print("token_type_embeds: ", token_type_embeds.shape)  
+        #print("token type embeds: ", token_type_embeds)
+        '''
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
-        print("hidden states just added embeds:", hidden_states)
+        #print("hidden states just added embeds:", hidden_states)
         if latent_as_gpt_emb:
             # pdb.set_trace()
             #hidden_states = hidden_states + past_emb.unsqueeze(1)
@@ -485,7 +488,7 @@ class GPT2Model(GPT2PreTrainedModel):
             if self.output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states.view(*output_shape),)
 
-            print("hidden states before Block(): ", hidden_states)
+            #print("hidden states before Block(): ", hidden_states)
             outputs = block(hidden_states,
                             layer_past=layer_past,
                             attention_mask=attention_mask,
@@ -657,14 +660,14 @@ class GPT2ForLatentConnector(GPT2PreTrainedModel):
                 labels=None, label_ignore=None):
 
 
+        max_idx = torch.ones_like(input_ids)*(self.config.vocab_size - 1)
+        input_ids = torch.min(input_ids, max_idx)
         transformer_outputs = self.transformer(input_ids,
                                                past=past,
                                                attention_mask=attention_mask,
                                                token_type_ids=token_type_ids,
                                                position_ids=position_ids,
-                                               head_mask=head_mask, 
-                                               latent_as_gpt_emb=self.latent_as_gpt_emb,
-                                               latent_as_gpt_memory=self.latent_as_gpt_memory)
+                                               head_mask=head_mask)
         hidden_states = transformer_outputs[0]
 
         lm_logits = self.lm_head(hidden_states)
