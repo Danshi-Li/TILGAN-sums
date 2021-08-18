@@ -851,7 +851,7 @@ class AE_GPT_dec(nn.Module):
         #print("tgt size:",tgt.shape)
         #dec_out = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt)
         dec_out = self.decoder(input_ids=tgt,past=memory_bank)
-        dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
+        #dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
         # reshape to batch_size*maxlen x nhidden before linear over vocab
 
         #decoded = self.linear(dec_out.contiguous().view(-1, self.nhidden))
@@ -997,7 +997,7 @@ class AE_BG(nn.Module):
         self.decoder = GPT2ForLatentConnector.from_pretrained("gpt2")
 
         # Initialize Linear Transformation
-        self.linear = nn.Linear(nhidden, gpt_tokens)
+        self.linear = nn.Linear(gpt_tokens, gpt_tokens)
 
         self.init_weights()
 
@@ -1082,21 +1082,9 @@ class AE_BG(nn.Module):
         memory_bank = self.encoder(src)[0]
         #print("Successfully attained latent output from encoder")
         if encode_only:
-            # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
             return memory_bank.transpose(0,1).contiguous().view(batchsize, -1)  #[64, 1600] doing concatenation
         memory_bank = self.unsqueeze_hidden(memory_bank)
-        if encode_only:
-            # return torch.sum(memory_bank, 0)  #[64,512]  doing pooling to produce a single vector
-            return memory_bank.transpose(0,1).contiguous().view(batchsize, -1)  #[64, 1600] doing concatenation
-        '''
-        bptt = False
-        if bptt is False:
-            self.init_state(src, memory_bank, enc_state)
-        memory_bank = self.unsqueeze_hidden(memory_bank)
-        '''
-        #memory_bank = self.dec_embedding(memory_bank)
-        if soft==False:
-            tgt = tgt.squeeze(-1)
+
         memory_bank = memory_bank.contiguous()
         '''
         The method applied by Optimus, see paper fig.3. Different from our design
@@ -1106,16 +1094,16 @@ class AE_BG(nn.Module):
         #memory_bank dim: [max_len+1, batch_size, nhidden]
         #tgt dim: [max_len+1, batch_size, 1]
         #memory_bank = memory_bank.view(-1, memory_bank.shape[2])
-        #print("memory bank shape:",memory_bank.shape)
+        #print("forward tgt:",tgt)
         #dec_out = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt)
-        dec_out = self.decoder(past=memory_bank,input_ids=tgt)
-        dec_out = dec_out.transpose(0,1) # dec_out [64,16,512] = [batchsize, max_len, nhidden]
+        tgt = tgt[:,:,0].transpose(0,1)
+        dec_out = self.decoder(input_ids=tgt, past=memory_bank)
         # reshape to batch_size*maxlen x nhidden before linear over vocab
 
+        # The linear head is incorporated in the architecture of GPT decoder.
         #decoded = self.linear(dec_out.contiguous().view(-1, self.nhidden))
-        decoded = dec_out.transpose(0,1)
-        # return dec_out, attns
-        return decoded
+
+        return dec_out
 
 
     def generate(self, hidden, maxlen, sample=True, temp=1.0):
@@ -1140,14 +1128,14 @@ class AE_BG(nn.Module):
         all_indices = []
 
         for step in range(maxlen):
-
+            #print("generate input step {}:".format(step),decoder_input)
             dec_out = self.decoder(
                 input_ids=decoder_input, past=memory_bank
             )
             dec_out = dec_out.transpose(0, 1).squeeze(1).squeeze(1)    # dec_out [64,1,512] -> [64,512]
             #print("dec out dim:",dec_out.shape)
             #print("self linear shape:",self.linear.weight.shape)
-            decoded = dec_out  #[64,ntokens]
+            decoded = self.linear(dec_out)  #[64,ntokens]
             # decoded = decoded.view(batch_size, 1, self.ntokens) #[64, 1, ntokens]
 
             if not sample:
