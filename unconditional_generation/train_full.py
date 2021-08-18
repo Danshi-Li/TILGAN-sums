@@ -336,10 +336,11 @@ def evaluate_autoencoder(data_source, epoch):
                 chars = corpus.gptTokenizer.convert_ids_to_tokens(t)
                 chars = ' '.join(chars)
                 f.write(chars + '\n')
-                # autoencoder output sentence
+                # autoencoder output sentencea
+                #print("train generated idx:",idx)
                 chars = corpus.gptTokenizer.convert_ids_to_tokens(idx)
                 chars = ' '.join(chars)
-                print("train generated sentence:", chars)
+                #print("train generated sentence:", chars)
                 f.write(chars + '\n'*2)
         
     return total_loss.item() / len(data_source[0]), all_accuracies/bcnt
@@ -350,14 +351,18 @@ def gen_fixed_noise(noise, to_save):
     autoencoder.eval()
 
     fake_hidden = gan_gen(noise)
+    #print("gen fixed noise hidden:",fake_hidden)
     max_indices = autoencoder.generate(fake_hidden, args.maxlen, sample=args.sample)
+    #print("gen fixed noise idx",max_indices)
+
     
     with open(to_save, "w") as f:
         max_indices = max_indices.data.cpu().numpy()
         for idx in max_indices:
             # generated sentences
+            #print("gen fixed noice idx:",idx)
             words = corpus.gptTokenizer.convert_ids_to_tokens(idx)
-            print("gen_fixed_noice sentence:",words)
+            #print("gen_fixed_noice sentence:",words)
             # truncate sentences to first occurrence of <eos>
             truncated_sent = []
             for w in words:
@@ -399,6 +404,8 @@ def train_ae(epoch, batch, total_loss_ae, start_time, i):
     masked_output = masked_output[:target_len,:]
     target_shift = torch.ones_like(masked_target)
     masked_target = torch.sub(masked_target, target_shift)
+    print("masked output:",masked_output)
+    print("masked target:",masked_target)
     loss = F.cross_entropy(masked_output, masked_target)
     loss.backward()
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
@@ -633,8 +640,10 @@ def train():
                     break  # end of epoch
                 total_loss_ae, start_time = train_ae(epoch, [train_data[0][niter],train_data[1][niter]],
                                 total_loss_ae, start_time, niter)
+                #print("AE weight:",autoencoder.decoder.transformer.wte.weight)
                 niter += 1
             # train gan
+            
             for k in range(niter_gan):
                 for i in range(args.niters_gan_d):
                     rnd_niters_gan_d = random.randint(0, len(train_data[0])-1)
@@ -647,10 +656,10 @@ def train():
                     errG = train_gan_g(args.gan_type)
                 if args.enhance_dec:
                     for i in range(args.niters_gan_dec):
-                        errG_enh_dec = train_gan_dec()
+                        errG_enh_dec = torch.Tensor([0])
                 else:
                     errG_enh_dec = torch.Tensor([0])
-
+            
             niter_g += 1
             if niter_g % 200 == 0:
                 logging('[{}/{}][{}/{}] Loss_D: {:.8f} (Loss_D_real: {:.8f} '
@@ -659,6 +668,7 @@ def train():
                          errD.data.item(), errD_real.data.item(),
                          errD_fake.data.item(), errG.data.item(), errG_enh_dec.data.item()))
         # eval
+        
         test_loss, accuracy = evaluate_autoencoder(test_data, epoch)
         logging('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
                 'test ppl {:5.2f} | acc {:3.3f}'.format(epoch,
