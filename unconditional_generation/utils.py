@@ -5,7 +5,7 @@ import random
 import shutil
 import json
 import math
-from transformers import BertTokenizer, GPT2Tokenizer
+from transformers import BertTokenizer, GPT2Tokenizer, T5Tokenizer
 
 def load_kenlm():
     global kenlm
@@ -66,19 +66,22 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, bert=False, gpt=False):
+    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, bert=False, gpt=False, T5=False):
         self.dictionary = Dictionary()
         self.maxlen = maxlen
         self.lowercase = lowercase
         self.vocab_size = vocab_size
         self.train_path = os.path.join(path, 'train.txt')
         self.test_path = os.path.join(path, 'test.txt')
+        self.T5 = T5
 
         # make the vocabulary from training set
         self.make_vocab()
 
-        self.train = self.tokenize(self.train_path)
-        self.test = self.tokenize(self.test_path)
+        if T5 == False:
+            #In T5 or bert+gpt setting, do not need transformer tokenizer
+            self.train = self.tokenize(self.train_path)
+            self.test = self.tokenize(self.test_path)
 
         if bert == True:
             self.bertTokenizer = BertTokenizer.from_pretrained('bert-base-cased')
@@ -91,6 +94,11 @@ class Corpus(object):
             self.gptTokenizer.add_special_tokens({'pad_token': '[PAD]'})
             self.train_gpt = self.tokenize_gpt(self.train_path)
             self.test_gpt = self.tokenize_gpt(self.test_path)
+
+        if T5 == True:
+            self.T5Tokenizer = T5Tokenizer.from_pretrained("t5-small")
+            self.train_T5 = self.tokenize_T5(self.train_path)
+            self.test_T5 = self.tokenize_T5(self.test_path)
             
 
     def make_vocab(self):
@@ -132,7 +140,7 @@ class Corpus(object):
                 indices = [vocab[w] if w in vocab else unk_idx for w in words]
                 lines.append(indices)
 
-        print("Number of sentences dropped from {}: {} out of {} total".
+        print("Transformer tokenizer: Number of sentences dropped from {}: {} out of {} total".
               format(path, dropped, linecount))
         return lines
 
@@ -156,7 +164,7 @@ class Corpus(object):
                 lines.append(line)
             indices = self.bertTokenizer(lines, max_length=self.maxlen, padding=True,truncation=True)['input_ids']
 
-        print("Number of sentences dropped from {}: {} out of {} total".
+        print("BERT tokenizer: Number of sentences dropped from {}: {} out of {} total".
               format(path, dropped, linecount))
         return indices
 
@@ -177,13 +185,38 @@ class Corpus(object):
                     continue
                 # vectorize
                 lines.append(line)
-            indices = self.gptTokenizer(lines, max_length=self.maxlen, padding=True,truncation=True)['input_ids']
-        print("Number of sentences dropped from {}: {} out of {} total".
+            indices = self.gptTokenizer(lines, max_length=self.maxlen, padding=False,truncation=True)['input_ids']
+        print("GPT tokenizer: Number of sentences dropped from {}: {} out of {} total".
+              format(path, dropped, linecount))
+        return indices
+
+    def tokenize_T5(self,path):
+        """Tokenizes a text file."""
+        dropped = 0
+        with open(path, 'r') as f:
+            linecount = 0
+            dropped = 0
+            lines = []
+            for line in f:
+                linecount += 1
+                line=line.strip()
+                if len(line.split()) < 1:
+                    dropped += 1
+                    continue
+                if len(line.split()) > self.maxlen:
+                    dropped += 1
+                    continue
+                # vectorize
+                lines.append(line)
+            indices = self.T5Tokenizer(lines,padding=False,truncation=True).input_ids
+
+        print("T5 tokenizer: Number of sentences dropped from {}: {} out of {} total".
               format(path, dropped, linecount))
         return indices
 
 
-def batchify(data, bsz, max_len, shuffle=False, gpu=False):
+
+def batchify(data, bsz, max_len, shuffle=False, gpu=False, T5=False):
     if shuffle:
         random.shuffle(data)
     nbatch = len(data) // bsz
