@@ -1,38 +1,27 @@
 # Unconditional Generation Code
 
 This is the implementaition for Unconditional Generation Task.
+The model is based on a previous paper entitled  `TILGAN: Transformer-based Implicit Latent GAN for Diverse and Coherent Text Generation`
 
-## Quick Links
-- [Unconditional Generation Code](#unconditional-generation-code)
-  - [Quick Links](#quick-links)
-  - [Environment](#environment)
-  - [Quick Start](#quick-start)
-  - [Hyper-parameter Setting](#hyper-parameter-setting)
-  - [Acknowledgement](#acknowledgement)
+## Autoencoder backbone experiments
 
-## Environment 
-To run our code, please install all the dependency packages by using the following command under python 3.6 (recommend):
+This work explores multiple settings to implement the encoder-decoder backbone model:
+| Backbone architecture | Train script file | Backbone class |
+|-|-|-|
+| Transformer + Transformer | train.py | models.py -> Seq2Seq |
+| BERT + Transformer | train_enc_bert.py | models.py -> AE_enc_BERT |
+| Transformer + GPT | train_dec_gpt.py | models.py -> AE_dec_GPT |
+| BERT + GPT | train_full.py | models.py -> AE_BG |
+| T5 | train_t5.py | T5model.py -> AE_T5 |
+
+## Run train script
+Take the example as to train with T5 backbone autoencoder:
 
 ```
-pip install -r requirements.txt
+>>> python train_T5.py --data_path data/MS_COCO_right --maxlen 16 --save PretrainGenerator100.0.1 --batch_size 64 --emsize 512 --nlayers 2 --nheads 4 --aehidden 56 \
+--niters_gan_d 1 --niters_gan_ae 1 --lr_gan_g 4e-04 --lr_ae 0.1 --add_noise --gan_d_local
 ```
 
-## Quick Start
-After the environment setup, you can simply type the following command:
-  ```shell
-  bash train.sh
-  ```
-
-Or you can type the commends as following:
-
-   ```shell
-   mkdir results
-   # Run train.py
-   python train.py --data_path ./data/NewsData --no_earlystopping --maxlen 32 --save ./results/newsdata_klgan --gan_type kl --batch_size 256 --z_size 512 --niters_ae 1 --niters_gan_ae 1 --niters_gan_d 5 --niters_gan_g 1 --lr_ae 0.7 --lr_gan_e 1e-4 --lr_gan_g 1e-4 --lr_gan_d 1e-4 
-   ```
-
-You can simply add arguments `--add_noise` , `--gan_d_local` and `--enhance_dec` to test the variants of our model.
-
-
-## Acknowledgement
-Thanks to the source code provider [ARAE](https://openreview.net/forum?id=BkM3ibZRW)
+## Pretrain generator module
+When using the pre-trained autoencoder backbones, the randomly initialized generator needs to be pretrained in order to match the autoencoder for capability.
+Use argument ```pretrain_generator [niter]``` to pretrain the generator for ```[niter]``` steps.
