@@ -18,7 +18,8 @@ This work explores multiple settings to implement the encoder-decoder backbone m
 Take the example as to train with T5 backbone autoencoder:
 
 ```
->>> python train_T5.py --data_path data/MS_COCO_right --maxlen 16 --save PretrainGenerator100.0.1 --batch_size 64 --emsize 512 --nlayers 2 --nheads 4 --aehidden 56 \
+>>> python train_T5.py --data_path data/MS_COCO_right --maxlen 16 --save PretrainGenerator100.0.1\
+--batch_size 64 --emsize 512 --nlayers 2 --nheads 4 --aehidden 56 \
 --niters_gan_d 1 --niters_gan_ae 1 --lr_gan_g 4e-04 --lr_ae 0.1 --add_noise --gan_d_local
 ```
 
