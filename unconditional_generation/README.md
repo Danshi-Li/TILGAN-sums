@@ -28,6 +28,6 @@ When using the pre-trained autoencoder backbones, the randomly initialized gener
 Use argument ```pretrain_generator [niter]``` to pretrain the generator for ```[niter]``` steps.
 
 ## TODOs
-Debug the implementation of T5 code
-Study and implement the BART version of encoder-decoder backbone
+Debug the implementation of T5 code\n
+Study and implement the BART version of encoder-decoder backbone\n
 Incorporate the idea of the paper ```Prefix Tuning```
