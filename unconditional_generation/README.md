@@ -26,3 +26,8 @@ Take the example as to train with T5 backbone autoencoder:
 ## Pretrain generator module
 When using the pre-trained autoencoder backbones, the randomly initialized generator needs to be pretrained in order to match the autoencoder for capability.
 Use argument ```pretrain_generator [niter]``` to pretrain the generator for ```[niter]``` steps.
+
+## TODOs
+>>>Debug the implementation of T5 code
+>>>Study and implement the BART version of encoder-decoder backbone
+>>>Incorporate the idea of the paper ```Prefix Tuning```
