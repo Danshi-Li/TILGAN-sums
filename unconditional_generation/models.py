@@ -1,3 +1,4 @@
+import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
 # from lang.onmt.encoders.transformer import TransformerEncoder
@@ -8,8 +9,9 @@ from onmt.decoders.transformer import TransformerDecoder
 from onmt.modules.embeddings import *
 from utils import to_gpu
 from torch.nn.init import xavier_uniform_
-from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config, GPT2Tokenizer, GPT2Model, GPT2LMHeadModel
+from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, GPT2Config, GPT2Tokenizer, GPT2Model, GPT2LMHeadModel, EncoderDecoderModel
 from bert.encoder import BertEncoder, BertEmbeddings, BertPooler
+torch.set_printoptions(profile="full")
 
 #from gpt.tokenization_gpt2 import GPT2Tokenizer
 from gpt.modeling_gpt2 import GPT2ForLatentConnector
@@ -959,11 +961,11 @@ class AE_GPT_dec(nn.Module):
 
 class AE_BG(nn.Module):
     def __init__(self, add_noise, emsize, nhidden, ntokens, gpt_tokens, nlayers, nheads, nff, aehidden, noise_r=0.2,
-                 hidden_init=False, dropout=0, gpu=True):
+                 hidden_init=False, dropout=0, gpu=True, decoder_impl='cai', unified_embedding=False):
         super(AE_BG, self).__init__()
         self.nhidden = nhidden
         self.emsize = emsize
-        self.ntokens = ntokens
+        self.ntokens = 50257    #vocab_size for GPT model
         self.nlayers = nlayers
         self.noise_r = noise_r
         self.hidden_init = hidden_init
@@ -977,29 +979,24 @@ class AE_BG(nn.Module):
         self.enc_embedding = BertEmbeddings(self.Bertconfig)
         self.dec_embedding = None
 
-        # Transformer Encoder and Decoder
-        # nheads = 8
-        # nff = 2048
-        # aehidden = 200
-        atten_dropout = dropout
-        max_rela_posi = 0
-        copyatten = False
-        selfattntype = "scaled-dot"
-        aanuseffn = False
-        fullcontextalignment=False
-        alignmentlayer=0
-        alignmentheads=0
+        if unified_embedding:
+            self.tokenizer=GPT2Tokenizer.from_pretrained("gpt2")
+        
+        
+        
+        if decoder_impl=='tutorial':
+            # encoder-decoder implementation with the transformers.EncoderDecoderModel() class
+            self.autoencoder = EncoderDecoderModel.from_encoder_decoder_pretrained("bert-base-cased","gpt2")
+            self.encoder = self.autoencoder.get_encoder()
+            self.decoder = self.autoencoder.get_decoder()
+        else:
+            #encoder-decoder implementation with separate classes
+            self.encoder = BertModel.from_pretrained("bert-base-cased")
+            self.decoder = GPT2LMHeadModel.from_pretrained("gpt2")
+        
 
-        self.encoder = self.encoder = BertEncoder(self.Bertconfig)
-        self.unsqueeze_hidden = nn.Linear(aehidden, 768)
-        self.config = GPT2Config.from_pretrained("gpt2")
-        self.config.n_positions = 2048
-        self.decoder = GPT2ForLatentConnector.from_pretrained("gpt2")
 
-        # Initialize Linear Transformation
-        self.linear = nn.Linear(gpt_tokens, gpt_tokens)
-
-        self.init_weights()
+        #self.init_weights()
 
 
     def init_weights(self):
@@ -1007,33 +1004,20 @@ class AE_BG(nn.Module):
         initrange = 0.1
 
         """Initiate parameters in the transformer model."""
-
+        '''
         for p in self.encoder.parameters():
             if p.dim() > 1:
                 xavier_uniform_(p)
         for p in self.decoder.parameters():
             if p.dim() > 1:
                 xavier_uniform_(p)
+        '''
         # Initialize Linear Weight
         self.linear.weight.data.uniform_(-initrange, initrange)
         self.linear.bias.data.fill_(0)
 
 
-    def forward(self, indices, lengths, target, add_noise, soft, encode_only=False):
-        # batch_size, maxlen = indices.size()
-        #
-        # hidden = self.encode(indices, lengths, noise)
-        #
-        # if encode_only:
-        #     return hidden
-        #
-        # if hidden.requires_grad:
-        #     hidden.register_hook(self.store_grad_norm)
-        #
-        # decoded = self.decode(hidden, batch_size, maxlen,
-        #                       indices=indices, lengths=lengths)
-        #
-        # return decoded
+    def forward(self, indices, lengths, target, add_noise, soft, encode_only=False, decoder_impl='cai', unified_embedding=False):
         """Forward propagate a `src` and `tgt` pair for training.
         Possible initialized with a beginning decoder state.
 
@@ -1056,54 +1040,71 @@ class AE_BG(nn.Module):
             * decoder output ``(tgt_len, batch, hidden)``
             * dictionary attention dists of ``(tgt_len, batch, src_len)``
         """
-        batchsize = indices.shape[0]  #64
+        batch_size = indices.shape[0]  #64
         max_len = indices.shape[1] #16
-        #src = self.embedding(indices)
-        # src = pack_padded_sequence(input=embeddings,lengths=lengths,batch_first=True)
-        src = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
-        # tgt = indices.transpose(0, 1) #[16,64] = [max_len, batchsize]
-        tgt = target.view(batchsize, max_len).transpose(0,1)
+        src = indices.contiguous() #[16,64] = [max_len, batchsize]
+        tgt = target.contiguous()
+        #print("src:",src)
+        #print("tgt:",tgt)
         
-        if soft==False:
-            tgt=tgt.unsqueeze(2)
-        
-        # dec_in = tgt[:-1]  # exclude last target from inputs
-        if lengths == None:
-            lengths_tensor = torch.LongTensor(batchsize)
-            lengths_tensor[:] = max_len
+        if unified_embedding:
+            enc_input_emb = self.tokenizer(src)
+            memory_bank = self.encoder(inputs_embeds=enc_input_emb).last_hidden_state.contiguous()
         else:
-            lengths_tensor = torch.LongTensor(lengths)  #[64]
-        #   lengths_tensor = torch.LongTensor(lengths)
-        # lengths_tensor[:] = max(lengths_tensor)
-        #enc_state, memory_bank, lengths = self.encoder(src, add_noise, soft, lengths_tensor) #enc_state=[16,64,512]  memory_back=[16,64,100] lengths=[64]
-        
-        src = self.enc_embedding(src, soft=soft)
-        
-        memory_bank = self.encoder(src)[0]
+            memory_bank = self.encoder(input_ids=src).last_hidden_state.contiguous()
         #print("Successfully attained latent output from encoder")
         if encode_only:
-            return memory_bank.transpose(0,1).contiguous().view(batchsize, -1)  #[64, 1600] doing concatenation
-        memory_bank = self.unsqueeze_hidden(memory_bank)
+            return memory_bank.transpose(0,1).contiguous().view(batch_size, -1)  #[64, 1600] doing concatenation
+        #memory_bank = self.unsqueeze_hidden(memory_bank)
 
-        memory_bank = memory_bank.contiguous()
         '''
         The method applied by Optimus, see paper fig.3. Different from our design
         Different decoder dims applied
-        dec_out = self.decoder(tgt, past=memory_bank)
+        dec_out = self.decoder(tgt, past=memory_bank).logits
         '''
         #memory_bank dim: [max_len+1, batch_size, nhidden]
         #tgt dim: [max_len+1, batch_size, 1]
-        #memory_bank = memory_bank.view(-1, memory_bank.shape[2])
-        #print("forward tgt:",tgt)
-        #dec_out = self.decoder(input_ids=tgt, past=memory_bank, labels=tgt)
-        tgt = tgt[:,:,0].transpose(0,1)
-        dec_out = self.decoder(input_ids=tgt, past=memory_bank)
+        '''
+        
+        '''
+        if decoder_impl == 'cai':
+            #The 'cai' implementation concats representation of [CLS] in BERT last layer with shifted target text as input to GPT
+            tgt_embed = self.decoder.transformer.wte(tgt[:,1:])
+            #using the representation of [CLS] as sentence embedding
+            memory_bank = memory_bank[:,0,:].unsqueeze(1)
+            decoder_input = torch.cat((memory_bank,tgt_embed),1).to(memory_bank.device)
+            #print("decoder_input shape:",decoder_input.shape)
+            dec_out = self.decoder(inputs_embeds=decoder_input).logits
+        elif decoder_impl== 'cai-stepwise':
+            #As described in the paper of Cai et al, use last layer [CLS] representation as zeroth token into GPT and generate text stepwise
+            #delete the ending [SEP] for the target sequence input to decoder
+            decoder_input = memory_bank[:,0,:].unsqueeze(1)
+            dec_out = []
+            decoded = self.decoder(inputs_embeds=decoder_input).logits
+            decoded = decoded.view(batch_size, 1, self.gpt_tokens)
+            dec_out.append(decoded)
+            vals, indices = torch.max(decoded, -1)  #vals: [64], indices: [64]
+            decoder_input = indices.view(batch_size,1).contiguous()
+            for step in range(max_len-1):
+                decoded = self.decoder(input_ids=decoder_input).logits
+                decoded = decoded.view(batch_size, 1, self.gpt_tokens)
+
+                dec_out.append(decoded)
+                vals, indices = torch.max(decoded, -1) #vals: [64], indices: [64]
+                decoder_input = indices.view(batch_size,1).contiguous()
+            dec_out = torch.cat(dec_out,1)
+        elif decoder_impl == 'bankonly':
+            # The second implementation uses the whole last layer BERT state as input embedding to GPT
+            dec_out = self.decoder(inputs_embeds=memory_bank).logits
+        elif decoder_impl == 'tutorial':
+            #The third implementation is adapted from the tutorial @shizhe shared and utilizes BERT last layer hidden state to interact with GPT in cross-attention layers
+            dec_out = self.decoder(input_ids=tgt,encoder_hidden_states=memory_bank).logits.contiguous()
+
+
+        #decoded = self.linear(dec_out.contiguous())
         # reshape to batch_size*maxlen x nhidden before linear over vocab
-
-        # The linear head is incorporated in the architecture of GPT decoder.
-        #decoded = self.linear(dec_out.contiguous().view(-1, self.nhidden))
-
-        return dec_out
+        decoded = dec_out.view(batch_size, max_len, self.gpt_tokens).contiguous()
+        return decoded
 
 
     def generate(self, hidden, maxlen, sample=True, temp=1.0):
@@ -1120,36 +1121,50 @@ class AE_BG(nn.Module):
         # embedding = self.embedding(self.start_symbols)
         # inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
         decoder_input = self.start_symbols.transpose(0,1).unsqueeze(2) #[1,64,1]
-        memory_bank = hidden.view(batch_size, maxlen+1, -1).contiguous().transpose(0,1)  #[64,3300] -> [64,33,100] -> [33,64,100]
-        memory_bank = self.unsqueeze_hidden(memory_bank)  # [33,64,100] -> [33,64,512]
+        memory_bank = hidden.view(batch_size, maxlen+1, -1).contiguous()  #[64,3300] -> [64,33,100] -> [33,64,100]
+        #memory_bank = self.unsqueeze_hidden(memory_bank)  # [33,64,100] -> [33,64,512]
         # memory_bank = hidden.expand(maxlen, hidden.shape[0], hidden.shape[1])  #[15, 64,512]
         memory_lengths = torch.ones(batch_size).fill_(maxlen)
         # unroll
         all_indices = []
 
+        decoded = self.decoder(
+                    inputs_embeds=memory_bank[:,0,:].unsqueeze(1)
+                ).logits
+        decoded = decoded.view(batch_size, 1, self.ntokens)
+        if not sample:
+            vals, indices = torch.max(decoded, -1)  #vals: [64], indices: [64]
+            indices = indices.unsqueeze(1) #[64,1]
+        else:
+            probs = F.softmax(decoded / temp, dim=-1)  #[64,978]
+            indices = torch.multinomial(probs, -1) #[64,1]
+        indices = indices.squeeze(-1)
+        all_indices.append(indices)
+        decoder_input = indices
+
+
         for step in range(maxlen):
             #print("generate input step {}:".format(step),decoder_input)
-            dec_out = self.decoder(
-                input_ids=decoder_input, past=memory_bank
-            )
-            dec_out = dec_out.transpose(0, 1).squeeze(1).squeeze(1)    # dec_out [64,1,512] -> [64,512]
+            decoded = self.decoder(input_ids=decoder_input).logits.contiguous()
+            #decoded = self.linear(decoded).contiguous()
             #print("dec out dim:",dec_out.shape)
             #print("self linear shape:",self.linear.weight.shape)
-            decoded = self.linear(dec_out)  #[64,ntokens]
-            # decoded = decoded.view(batch_size, 1, self.ntokens) #[64, 1, ntokens]
+            decoded = decoded.view(batch_size, 1, self.gpt_tokens) #[64, 1, ntokens]
 
             if not sample:
-                vals, indices = torch.max(decoded, 1)  #vals: [64], indices: [64]
+                vals, indices = torch.max(decoded, -1)  #vals: [64], indices: [64]
                 indices = indices.unsqueeze(1) #[64,1]
             else:
                 probs = F.softmax(decoded / temp, dim=-1)  #[64,978]
-                indices = torch.multinomial(probs, 1) #[64,1]
+                indices = torch.multinomial(probs, -1) #[64,1]
 
+            indices = indices.squeeze(-1)
             all_indices.append(indices)
 
             # embedding = self.embedding(indices)
             # inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
-            decoder_input = indices.unsqueeze(0)
+            decoder_input = indices
+            
 
         max_indices = torch.cat(all_indices, 1)
         return max_indices

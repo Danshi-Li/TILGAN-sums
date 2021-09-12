@@ -5,7 +5,7 @@ import random
 import shutil
 import json
 import math
-from transformers import BertTokenizer, GPT2Tokenizer, T5Tokenizer
+from transformers import BertTokenizer, GPT2Tokenizer, T5Tokenizer, BartTokenizer
 
 def load_kenlm():
     global kenlm
@@ -66,14 +66,13 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, bert=False, gpt=False, T5=False):
+    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, bert=False, gpt=False, T5=False, BART=False):
         self.dictionary = Dictionary()
         self.maxlen = maxlen
         self.lowercase = lowercase
         self.vocab_size = vocab_size
         self.train_path = os.path.join(path, 'train.txt')
         self.test_path = os.path.join(path, 'test.txt')
-        self.T5 = T5
 
         # make the vocabulary from training set
         self.make_vocab()
@@ -91,7 +90,6 @@ class Corpus(object):
 
         if gpt == True:
             self.gptTokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-            self.gptTokenizer.add_special_tokens({'pad_token': '[PAD]'})
             self.train_gpt = self.tokenize_gpt(self.train_path)
             self.test_gpt = self.tokenize_gpt(self.test_path)
 
@@ -99,6 +97,11 @@ class Corpus(object):
             self.T5Tokenizer = T5Tokenizer.from_pretrained("t5-small")
             self.train_T5 = self.tokenize_T5(self.train_path)
             self.test_T5 = self.tokenize_T5(self.test_path)
+
+        if BART == True:
+            self.BARTTokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
+            self.train_BART = self.tokenize_BART(self.train_path)
+            self.test_BART = self.tokenize_BART(self.test_path)
             
 
     def make_vocab(self):
@@ -176,15 +179,20 @@ class Corpus(object):
             lines = []
             for line in f:
                 linecount += 1
-                line=line.strip()
-                if len(line.split()) < 1:
+                if self.lowercase:
+                    words = line[:-1].lower().strip().split(" ")
+                else:
+                    words = line[:-1].strip().split(" ")
+                if len(words) > self.maxlen:
                     dropped += 1
                     continue
-                if len(line.split()) > self.maxlen:
+                if len(words) < 1:
                     dropped += 1
                     continue
+                words = ['<|endoftext|>'] + words
+                words += ['<|endoftext|>']
                 # vectorize
-                lines.append(line)
+                lines.append(" ".join(words))
             indices = self.gptTokenizer(lines, max_length=self.maxlen, padding=False,truncation=True)['input_ids']
         print("GPT tokenizer: Number of sentences dropped from {}: {} out of {} total".
               format(path, dropped, linecount))
@@ -214,9 +222,33 @@ class Corpus(object):
               format(path, dropped, linecount))
         return indices
 
+    def tokenize_BART(self,path):
+        """Tokenizes a text file."""
+        dropped = 0
+        with open(path, 'r') as f:
+            linecount = 0
+            dropped = 0
+            lines = []
+            for line in f:
+                linecount += 1
+                line=line.strip()
+                if len(line.split()) < 1:
+                    dropped += 1
+                    continue
+                if len(line.split()) > self.maxlen:
+                    dropped += 1
+                    continue
+                # vectorize
+                lines.append(line)
+            indices = self.BARTTokenizer(lines,padding=False,truncation=True).input_ids
+
+        print("BART tokenizer: Number of sentences dropped from {}: {} out of {} total".
+              format(path, dropped, linecount))
+        return indices
 
 
-def batchify(data, bsz, max_len, shuffle=False, gpu=False, T5=False):
+
+def batchify(data, bsz, max_len, shuffle=False, gpu=False, GPT=False):
     if shuffle:
         random.shuffle(data)
     nbatch = len(data) // bsz
@@ -231,13 +263,16 @@ def batchify(data, bsz, max_len, shuffle=False, gpu=False, T5=False):
 
         # sort items by length (decreasing)
         batch, lengths = length_sort(batch, lengths)
+
         # source has no end symbol
         source = [x[:-1] for x in batch]
         # target has no start symbol
         target = [x[1:] for x in batch]
-
         for x, y in zip(source, target):
-            zeros = (maxlen-len(x))*[0]
+            if GPT:
+                zeros = (maxlen-len(x))*[50256]
+            else:
+                zeros = (maxlen-len(x))*[0]
             x += zeros
             y += zeros
         source = torch.LongTensor(np.int64(source))
